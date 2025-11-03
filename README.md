@@ -1,2 +1,13 @@
-# EchoChamber
-An AI-powered system that tracks and analyses how personalised social-media feeds evolve over time. Combines Reddit’s API and Twitter scraping with sentiment analysis and visualisation to explore echo chambers and algorithmic bias.
+# Overview
+
+This project analyses how personalised social-media feeds evolve over time, using Reddit (API) and Twitter (Playwright) as data sources. Posts are processed with a free LLM (Hugging Face / DeepSeek) for sentiment analysis and visualised in Streamlit dashboards.
+
+
+## Tech Stack
+
+* Python
+* FastAPI
+* Playwright
+* MongoDB Atlas
+* Streamlit
+* DeepSeek
