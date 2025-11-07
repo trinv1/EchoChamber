@@ -6,27 +6,29 @@ This fully automated pipeline runs on a weekly schedule — capturing, processin
 
 # Overview
 
-EchoChamber demonstrates an automated end-to-end data pipeline for studying algorithmic bias and polarisation in personalised social feeds.
+* EchoChamber demonstrates an automated end-to-end data pipeline for studying algorithmic bias and polarisation in personalised social feeds.
 
-The workflow consists of:
+* The workflow consists of:
 
-Data Capture – Fetch or screenshot posts from Reddit and Twitter feeds.
+* Data Capture – Fetch or screenshot posts from Reddit and Twitter feeds.
 
-Text Extraction – Extract visible text from HTML or screenshots.
+* Text Extraction – Extract visible text from HTML or screenshots.
 
-Storage – Save post content and metadata to a MongoDB Atlas database.
+* Storage – Save post content and metadata to a MongoDB Atlas database.
 
-Processing & Sentiment Analysis – Use Hugging Face or DeepSeek APIs to analyse tone and polarity.
+* Processing & Sentiment Analysis – Use Hugging Face or DeepSeek APIs to    analyse tone and polarity.
 
-API Layer (FastAPI) – Provide structured access to stored text and sentiment results.
+* API Layer (FastAPI) – Provide structured access to stored text and sentiment results.
 
-Visualisation (Streamlit) – Display sentiment distribution and temporal trends interactively.
+* Visualisation (Streamlit) – Display sentiment distribution and temporal trends interactively.
 
-Automation (Scheduler) – Execute the full pipeline weekly without manual intervention.
+* Automation (Scheduler) – Execute the full pipeline weekly without manual intervention.
 
 ## Tech Stack
 
 * Python
 * Streamlit
 * FastAPI
+* GPT API
 * Python scheduler
+* MongoDB Atlas
