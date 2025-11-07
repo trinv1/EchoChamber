@@ -1,13 +1,32 @@
+# EchoChamber
+
+EchoChamber investigates how personalised social-media feeds evolve over time. It collects posts from Reddit and Twitter via capturing images from home feeds and extracting text from the image. Sentiment analysis is then applied using the GPT API, and emotional trends are visualised over time using Streamlit dashboards.
+
+This fully automated pipeline runs on a weekly schedule — capturing, processing, analysing, and visualising data with minimal manual input.
+
 # Overview
 
-This project analyses how personalised social-media feeds evolve over time, using Reddit (API) and Twitter (Playwright) as data sources. Posts are processed with a free LLM (Hugging Face / DeepSeek) for sentiment analysis and visualised in Streamlit dashboards.
+EchoChamber demonstrates an automated end-to-end data pipeline for studying algorithmic bias and polarisation in personalised social feeds.
 
+The workflow consists of:
+
+Data Capture – Fetch or screenshot posts from Reddit and Twitter feeds.
+
+Text Extraction – Extract visible text from HTML or screenshots.
+
+Storage – Save post content and metadata to a MongoDB Atlas database.
+
+Processing & Sentiment Analysis – Use Hugging Face or DeepSeek APIs to analyse tone and polarity.
+
+API Layer (FastAPI) – Provide structured access to stored text and sentiment results.
+
+Visualisation (Streamlit) – Display sentiment distribution and temporal trends interactively.
+
+Automation (Scheduler) – Execute the full pipeline weekly without manual intervention.
 
 ## Tech Stack
 
 * Python
-* FastAPI
-* Playwright
-* MongoDB Atlas
 * Streamlit
-* DeepSeek
+* FastAPI
+* Python scheduler
