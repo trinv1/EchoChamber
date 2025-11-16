@@ -2,6 +2,8 @@ import os
 import base64
 from openai import OpenAI
 from dotenv import load_dotenv
+from pymongo import MongoClient
+
 
 #Loading secrets from .env file
 load_dotenv()
@@ -9,7 +11,12 @@ load_dotenv()
 #Instantiates OpenAI client with API key from env
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-folder_dir = "/Users/trinvillaruel/Desktop/BScreenshots"
+#Instantiates Mongo client with uri key from env
+mongo = MongoClient(os.getenv("MONGO_URI"))
+db = mongo["SocialMediaDB"]
+tweets = db["boytwitter"]
+
+folder_dir = "/Users/trinvillaruel/Desktop/BScreenshotsTwitter"
 
 #Iterating over pictures in folder and building path
 for image_name in os.listdir(folder_dir):
@@ -29,7 +36,17 @@ for image_name in os.listdir(folder_dir):
                 {
                     #Setting strict behaviour
                     "role": "system",
-                    "content": "You extract only the tweet text from screenshots of Twitter/X feeds."
+                    "content": (
+                        "Extract ONLY the FIRST tweet in the screenshot. "
+                        "Respond EXACTLY in this JSON format and nothing else:\n"
+                        "{\"tweet\": \"...\"}\n"
+                        "Rules:\n"
+                        "- NO markdown\n"
+                        "- NO backticks\n"
+                        "- NO explanations\n"
+                        "- NO extra keys\n"
+                        "- The value MUST be valid JSON string\n"
+                    )
                 },
                 {
                     "role": "user",
@@ -41,6 +58,8 @@ for image_name in os.listdir(folder_dir):
                                 "If more than one tweet appears, extract only the very first main tweet shown. "
                                 "Ignore usernames, metrics, timestamps, menus, or UI elements. "
                                 "Return plain text only — one line per tweet."
+                                "Respond with JSON only — no extra text."
+
                             )
                         },
                         {
@@ -55,15 +74,20 @@ for image_name in os.listdir(folder_dir):
             ]
         )
 
-        #Pulling text output 
-        extracted_text = response.choices[0].message.content
-        
-        print(f"\nExtracted text:\n{extracted_text}\n")
+        #Extracting model output (JSON string)
+        json_output = response.choices[0].message.content
 
-        #Extracted text folder
-        et_folder = "/Users/trinvillaruel/Desktop/Extracted text"
-        
-        #Saving result
-        output_path = os.path.join(et_folder, f"{os.path.splitext(image_name)[0]}_text.txt")
-        with open(output_path, "w") as f:
-            f.write(extracted_text)
+        #Parsing JSON returned by model
+        import json
+        parsed = json.loads(json_output)
+        tweet_text = parsed["tweet"]
+
+        print(f"Extracted tweet:\n{tweet_text}\n")
+
+        #Saving to MongoDB
+        tweets.insert_one({
+            "image_name": image_name,
+            "tweet": tweet_text
+        })
+
+        print("Saved to MongoDB.\n")
