@@ -11,7 +11,7 @@ os.makedirs(TWITTER_GIRL, exist_ok=True)
 #Function to take screenshots
 def take_screenshots_boy():
     for i in range(25):
-        filename = f"screenshot_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{i+1}.png"
+        filename = f"screenshot-{i+1}.png"
         fullpath = os.path.join(TWITTER_BOY, filename)
         screenshot = pyautogui.screenshot()
         screenshot.save(fullpath)
@@ -20,7 +20,7 @@ def take_screenshots_boy():
 #Function to take screenshots
 def take_screenshots_girl():
     for i in range(25):
-        filename = f"screenshot_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{i+1}.png"
+        filename = f"screenshot-{i+1}.png"        
         fullpath = os.path.join(TWITTER_GIRL, filename)
         screenshot = pyautogui.screenshot()
         screenshot.save(fullpath)
@@ -31,7 +31,7 @@ schedule.every().sunday.at("14:00").do(take_screenshots_boy)
 schedule.every().sunday.at("14:05").do(take_screenshots_girl)
 
 
-print("Screenshot scheduler started. Waiting for Friday 12:15pm")
+print("Screenshot scheduler started. Waiting for Sunday 14:00pm")
 
 #Keeping scheduler running
 while True:
