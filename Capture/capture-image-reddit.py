@@ -9,27 +9,17 @@ REDDIT_GIRL = "/Users/trinvillaruel/Desktop/GScreenshotsReddit"
 os.makedirs(REDDIT_GIRL, exist_ok=True)
 
 #Function to take screenshots
-def take_screenshots_boy():
-    for i in range(25):
+def take_screenshots(file_path):
+    for i in range(2):
         filename = f"screenshot-{i+1}.png"        
-        fullpath = os.path.join(REDDIT_BOY, filename)
+        fullpath = os.path.join(file_path, filename)
         screenshot = pyautogui.screenshot()
         screenshot.save(fullpath)
-        #time.sleep(1)
+        time.sleep(1)
 
-#Function to take screenshots
-def take_screenshots_girl():
-    for i in range(25):
-        filename = f"screenshot-{i+1}.png"
-        fullpath = os.path.join(REDDIT_GIRL, filename)
-        screenshot = pyautogui.screenshot()
-        screenshot.save(fullpath)
-        #time.sleep(1)
-
-#Scheduling screenshots every Sunday
-schedule.every().sunday.at("14:10").do(take_screenshots_boy)
-schedule.every().sunday.at("14:15").do(take_screenshots_girl)
-
+#Scheduling screenshots every Tuesday
+schedule.every().tuesday.at("14:06").do(take_screenshots(REDDIT_BOY))
+schedule.every().tuesday.at("14:09").do(take_screenshots(REDDIT_GIRL))
 
 print("Screenshot scheduler started. Waiting for Sunday 14:10pm")
 

@@ -30,21 +30,38 @@ for image_name in os.listdir(folder_dir):
             image_b64 = base64.b64encode(image_bytes).decode("utf-8")
 
         #Calling API and creating chat completion request
-        response = client.chat.completions.create(
+    response = client.chat.completions.create(
             model="gpt-4o-mini",
-             messages=[
+            messages=[
                 {
                     "role": "system",
                     "content": (
-                        "You extract ONLY the main Reddit post text from screenshots. "
-                        "Respond EXACTLY in this JSON format and nothing else:\n"
-                        "{\"post\": \"...\"}\n"
+                        "You extract structured Reddit post data from screenshots. "
+                        "Extract ALL visible posts from top to bottom. "
+                        "Return EXACTLY this JSON format and nothing else:\n"
+                        "{\n"
+                        "  \"posts\": [\n"
+                        "    {\n"
+                        "      \"subreddit\": \"name of the subreddit\",\n"
+                        "      \"username\": \"author username (without u/)\",\n"
+                        "      \"upvotes\": \"number of upvotes (integer only)\",\n"
+                        "      \"downvotes\": null,\n"
+                        "      \"text\": \"main post text only\"\n"
+                        "    }\n"
+                        "  ]\n"
+                        "}\n"
                         "Rules:\n"
-                        "- NO markdown\n"
-                        "- NO backticks\n"
-                        "- NO explanations\n"
-                        "- NO extra keys\n"
-                        "- The value MUST be valid JSON string\n"
+                        "- Only include actual posts, not ads or sponsored content.\n"
+                        "- Extract ONLY the main post text (no comments, vote buttons, share icons, or UI elements).\n"
+                        "- Extract subreddit names exactly as shown (e.g., r/Python → \"Python\").\n"
+                        "- Extract usernames exactly as shown (if none visible, set username to null).\n"
+                        "- Reddit does not show downvotes, so always return: \"downvotes\": null.\n"
+                        "- Upvotes must be integers only (e.g., \"172\").\n"
+                        "- NO markdown.\n"
+                        "- NO backticks.\n"
+                        "- NO explanations.\n"
+                        "- NO extra keys.\n"
+                        "- JSON must be valid and parseable.\n"
                     ),
                 },
                 {
@@ -53,10 +70,10 @@ for image_name in os.listdir(folder_dir):
                         {
                             "type": "text",
                             "text": (
-                                "Extract only the FIRST Reddit post's main text from this screenshot. "
-                                "Ignore comments and sidebar content. Return plain text only."
+                                "Extract ALL visible Reddit posts from this screenshot. "
+                                "Return subreddit name, username, upvotes, downvotes, and post text. "
+                                "Follow the JSON schema exactly. "
                                 "Respond with JSON only — no extra text."
-
                             )
                         },
                         {
@@ -68,20 +85,21 @@ for image_name in os.listdir(folder_dir):
             ]
         )
 
-          #Extracting model output (JSON string)
-        json_output = response.choices[0].message.content
 
-        #Parsing JSON returned by model
-        import json
-        parsed = json.loads(json_output)
-        post_text = parsed["post"]
+    #Extracting model output (JSON string)
+    json_output = response.choices[0].message.content
 
-        print(f"Extracted post:\n{post_text}\n")
+    #Parsing JSON returned by model
+    import json
+    parsed = json.loads(json_output)
+    posts_text = parsed["posts"]
 
-        #Saving to MongoDB
-        tweets.insert_one({
-            "image_name": image_name,
-            "tweet": post_text
-        })
+    print(f"Extracted post:\n{posts_text}\n")
 
-        print("Saved to MongoDB.\n")
+    #Saving to MongoDB
+    tweets.insert_one({
+        "image_name": image_name,
+        "tweet": posts_text
+    })
+
+    print("Saved to MongoDB.\n")
