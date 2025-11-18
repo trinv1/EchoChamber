@@ -17,9 +17,17 @@ def take_screenshots(file_path):
         screenshot.save(fullpath)
         #time.sleep(1)
 
-#Scheduling screenshots every Tuesday
+#Deleting images in folder
+def delete_contents(file_path):
+    for image_name in os.listdir(file_path):
+        if image_name.endswith(".png"):
+            os.remove(os.path.join(file_path, image_name))
+
+#Scheduling tasks every Tuesday
 schedule.every().tuesday.at("14:00").do(take_screenshots(TWITTER_BOY))
 schedule.every().tuesday.at("14:03").do(take_screenshots(TWITTER_GIRL))
+schedule.every().tuesday.at("15:00").do(delete_contents(TWITTER_GIRL))
+schedule.every().tuesday.at("15:00").do(delete_contents(TWITTER_BOY))
 
 print("Screenshot scheduler started. Waiting for Sunday 14:00pm")
 
