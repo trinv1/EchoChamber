@@ -4,6 +4,8 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from pymongo import MongoClient
 import time
+import json
+
 
 #Loading secrets from .env file
 load_dotenv()
@@ -94,7 +96,6 @@ def extract_text(folder_dir, collection):
             json_output = response.choices[0].message.content
 
             #Parsing JSON returned by model
-            import json
             parsed = json.loads(json_output)
             tweet_text = parsed["tweet"]
 

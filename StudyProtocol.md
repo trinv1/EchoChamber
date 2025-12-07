@@ -2,6 +2,8 @@ STUDY PROTOCOL FOR TWITTER (X) FEED CAPTURE
 
 This protocol ensures consistent, unbiased, and replicable data collection for analysing personalised recommendation feeds on Twitter (X).
 
+**PHASE 1 — Baseline Data Collection (Pre-Gender Assignment)**
+
 1. Account Creation
 
 Two separate Twitter accounts are used to evaluate potential differences in recommendation behaviour under controlled conditions.
@@ -13,18 +15,18 @@ Accounts:
 Controlled Setup:
 To minimise initial algorithmic divergence, both accounts are configured identically.
 
-Initial Interests Selected for BOTH accounts:
-News
-Movies & TV
-Technology
-Business & Finance
-Career
-Gaming
-Health & Fitness
-Memes
-Education
-Science
-Religion
+Initial Interests Selected for BOTH accounts:<br>
+News<br>
+Movies & TV<br>
+Technology<br>
+Business & Finance<br>
+Career<br>
+Gaming<br>
+Health & Fitness<br>
+Memes<br>
+Education<br>
+Science<br>
+Religion<br>
 
 This ensures the only meaningful variable between accounts is the account username (A vs. B), not their expressed interest
 
@@ -65,4 +67,13 @@ This avoids asymmetric behavioural drift between the two accounts.
 * Data is captured once per week at a consistent time
 * Duration of each capture: 1 minute per account
 * Screenshots are saved and timestamped automatically
+
+**PHASE 2: Experimental Intervention: Gender Assignment**
+
+* Profile gender set to `Male` for boyuser112 
+* Profile gender set to `Female` for girluser112
+
+This isolates gender as the only new informational signal to the recommender model.
+
+
 
