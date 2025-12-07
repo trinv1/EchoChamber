@@ -37,7 +37,82 @@ def sentiment_analysis(collection, cursor):
         for doc in batch:
             print(f"- {doc['_id']} : {doc['tweet']}")
 
-            
+            tweet_text = doc["tweet"]
+            #print("Processing tweet:", tweet_text[:40], "…")
+
+            #Calling API and creating chat completion request
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a sentiment and political-alignment classifier."
+                            "Classify content using these political categories:"
+                            "LEFT-LEANING: "
+                            "- supports social justice, equality, minority rights; "
+                            "- pro-Palestine, anti-war, anti-genocide framing; "
+                            "- pro-LGBTQ+, pro-immigration, asylum advocacy; "
+                            "- criticism of police, capitalism, corporations, or right-wing governments; "
+                            "- humanitarian framing such as 'this is genocide', 'we need ceasefire', 'protect civilians'. "
+                            
+                            "RIGHT-LEANING: "
+                            "- nationalism, anti-immigration, anti-asylum narratives; "
+                            "- strong criticism of Islam, Muslims, or Middle Eastern cultures; "
+                            "- strong criticism of any ethnic cultures or backgrounds/minorities in general; "
+                            "- pro-police, pro-military, pro-border enforcement; "
+                            "- support for Trump, conservatives, patriotism framing; "
+                            "- cultural traditionalism, anti-woke, anti-LGBTQ+ framing. "
+
+                            "CENTRIST / MODERATE: "
+                            "- balanced or neutral anguage; "
+                            "- avoids ideological framing; "
+                            "- reports facts without advocacy; "
+                            "- political commentary without emotional bias. "
+
+                            "APOLITICAL: "
+                            "- content unrelated to politics; "
+                            "- entertainment, sports, memes, neutral news etc. "
+
+                            "UNCLEAR: "
+                            "- insufficient information to determine leaning. "
+
+                            "Rules: "
+                            "- Toxicity is separate from political leaning. "
+                            "- Criticism of governments, religions, or ideologies is NOT automatically hateful. "
+                            "- Identify the ideological alignment of the message, not the sentiment tone. "
+                             "Output JSON format:\n"
+                             "{\n"
+                             "  \"emotiional_valence\": \"positive | neutral | negative | serious\",\n"
+                             "  \"emotion_intensity\": 0 to 1,\n"
+                             "  \"moral_stance\": \"supportive | condemning | informative | neutral | sarcastic\",\n"
+                             "  \"political_leaning\": \"left | right | centre | unclear | apolitical\",\n"
+                             "  \"is_toxic\": false,\n"
+                             "  \"topic\": \"short category\"\n"
+                             "}\n"
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"Tweet: {tweet_text}\n\nAnalyse the sentiment and return JSON only."                                                  
+                            },
+                        ]
+                    }
+                ]
+            )
+
+            #Extracting model output (JSON string)
+            sentiment = json.loads(response.choices[0].message.content)
+
+
+            print(f"Sentiment:\n{sentiment}\n")
+
+     
+
+        print("Saved to MongoDB.\n")
             
         #Sleeping between batches to avoid tpm on api
         print("Batch finished. Sleeping 60 seconds\n")
