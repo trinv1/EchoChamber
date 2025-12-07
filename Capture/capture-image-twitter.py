@@ -11,7 +11,7 @@ os.makedirs(TWITTER_GIRL, exist_ok=True)
 #Taking screenshots
 def take_screenshots(file_path):
     for i in range(45):
-        filename = f"screenshot_{datetime.now().strftime('%d-%m-%Y')}_{i+1}.png"
+        filename = f"{datetime.now().strftime('%d-%m-%Y')}_{i+1}.png"
         fullpath = os.path.join(file_path, filename)
         screenshot = pyautogui.screenshot()
         screenshot.save(fullpath)
