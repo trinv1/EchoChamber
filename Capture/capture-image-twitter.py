@@ -24,10 +24,10 @@ def delete_contents(file_path):
             os.remove(os.path.join(file_path, image_name))
 
 #Scheduling tasks every sunday
-schedule.every().sunday.at("13:33").do(take_screenshots, TWITTER_BOY)
-schedule.every().sunday.at("13:23").do(take_screenshots, TWITTER_GIRL)
-schedule.every().sunday.at("17:00").do(delete_contents, TWITTER_GIRL)
-schedule.every().sunday.at("17:00").do(delete_contents, TWITTER_BOY)
+schedule.every().sunday.at("16:49").do(take_screenshots, TWITTER_BOY)
+schedule.every().sunday.at("16:55").do(take_screenshots, TWITTER_GIRL)
+schedule.every().sunday.at("19:00").do(delete_contents, TWITTER_GIRL)
+schedule.every().sunday.at("19:00").do(delete_contents, TWITTER_BOY)
 
 print("Screenshot scheduler started. Waiting for Sunday 13:00pm")
 

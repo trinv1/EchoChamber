@@ -43,53 +43,53 @@ def sentiment_analysis(collection, cursor):
                 #Calling API and creating chat completion request
                 response = client.chat.completions.create(
                     model="gpt-4o-mini",
-                    #Prompt
                     messages=[
                         {
                             "role": "system",
                             "content": (
-                                "You are a sentiment and political-alignment classifier."
-                                "Classify content using these political categories:"
+                                "You are a sentiment and political-alignment classifier. "
+                                "Classify content based ONLY on language, framing, and expressed positions. "
+                                "Do not apply moral judgment or assume correctness of any viewpoint. "
+
                                 "LEFT-LEANING: "
-                                "- supports social justice, equality, minority rights; "
-                                "- pro-Palestine, anti-war, anti-genocide framing; "
-                                "- pro-LGBTQ+, pro-immigration, asylum advocacy; "
-                                "- criticism of police, capitalism, corporations, or right-wing governments; "
-                                "- humanitarian framing such as 'this is genocide', 'we need ceasefire', 'protect civilians'. "
-                                
+                                "- emphasizes collective responsibility, systemic or structural explanations; "
+                                "- focuses on equality, redistribution, or group-level outcomes; "
+                                "- supports expanded government, regulation, or institutional intervention; "
+                                "- uses framing aligned with progressive, socialist, or egalitarian traditions. "
+
                                 "RIGHT-LEANING: "
-                                "- nationalism, anti-immigration, anti-asylum narratives; "
-                                "- strong criticism of Islam, Muslims, or Middle Eastern cultures; "
-                                "- strong criticism of any ethnic cultures or backgrounds/minorities in general; "
-                                "- pro-police, pro-military, pro-border enforcement; "
-                                "- support for Trump, conservatives, patriotism framing; "
-                                "- cultural traditionalism, anti-woke, anti-LGBTQ+ framing. "
+                                "- emphasizes individual responsibility, national identity, or cultural continuity; "
+                                "- focuses on sovereignty, borders, security, tradition, or market outcomes; "
+                                "- supports limited government, enforcement, or established institutions; "
+                                "- uses framing aligned with conservative, nationalist, or free-market traditions. "
 
                                 "CENTRIST / MODERATE: "
-                                "- balanced or neutral anguage; "
-                                "- avoids ideological framing; "
-                                "- reports facts without advocacy; "
-                                "- political commentary without emotional bias. "
+                                "- balances or mixes left and right framing; "
+                                "- focuses on pragmatism, trade-offs, or incremental change; "
+                                "- avoids strong ideological or absolutist language. "
 
                                 "APOLITICAL: "
-                                "- content unrelated to politics; "
-                                "- entertainment, sports, memes, neutral news etc. "
+                                "- contains no political claims, advocacy, or ideological framing; "
+                                "- topics such as sports, entertainment, personal anecdotes, or non-political news. "
 
                                 "UNCLEAR: "
-                                "- insufficient information to determine leaning. "
+                                "- insufficient or ambiguous information to infer political alignment. "
 
                                 "Rules: "
-                                "- Toxicity is separate from political leaning. "
-                                "- Criticism of governments, religions, or ideologies is NOT automatically hateful. "
-                                "- Identify the ideological alignment of the message, not the sentiment tone. "
+                                "- Political alignment is inferred from the text itself, including both explicit ideological statements and implicit political signaling."
+                                "- Implicit political signaling includes framing, narratives, or language commonly associated with contemporary political factions, even if no policy or ideology is explicitly stated."
+                                "- Criticism of governments, religions, cultures, or ideologies is NOT inherently hateful."
+                                "- Emotional tone and toxicity are independent of political alignment. "
+                                "- Do not infer intent beyond the provided text. "
+
                                 "Output JSON format:\n"
                                 "{\n"
                                 "  \"emotional_valence\": \"positive | neutral | negative | serious\",\n"
-                                "  \"emotion_intensity\": 0 to 1,\n"
+                                "  \"emotion_intensity\": 0.0 to 1.0,\n"
                                 "  \"moral_stance\": \"supportive | condemning | informative | neutral | sarcastic\",\n"
-                                "  \"political_leaning\": \"left | right | centre | unclear | apolitical\",\n"
-                                "  \"is_toxic\": false,\n"
-                                "  \"topic\": \"short category\"\n"
+                                "  \"political_leaning\": \"left | right | centre | apolitical | unclear\",\n"
+                                "  \"is_toxic\": true | false,\n"
+                                "  \"topic\": \"short neutral topic\"\n"
                                 "}\n"
                             )
                         },
@@ -98,12 +98,13 @@ def sentiment_analysis(collection, cursor):
                             "content": [
                                 {
                                     "type": "text",
-                                    "text": f"Tweet: {tweet_text}\n\nAnalyse the sentiment and return JSON only."                                                  
-                                },
+                                    "text": f"Tweet: {tweet_text}\n\nAnalyse the sentiment and return JSON only."
+                                }
                             ]
                         }
                     ]
                 )
+
 
                 #Extracting model output (JSON string)
                 sentiment = json.loads(response.choices[0].message.content)
