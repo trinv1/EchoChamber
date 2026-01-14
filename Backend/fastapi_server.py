@@ -76,8 +76,8 @@ def boy_stats():
     return {"series": result}
 
 @app.get("/stats/girl/political-leaning")
-def boy_stats():
-    result = counts_by_date_and_leaning(boytwitter)
+def girl_stats():
+    result = counts_by_date_and_leaning(girltwitter)
     print("Girl stats:")
     for r in result:
         print(r)
