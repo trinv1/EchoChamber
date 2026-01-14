@@ -4,8 +4,10 @@ import requests
 
 st.title("Algorithmic Bias Analysis")
 
-API_URL_B = "http://127.0.0.1:8000/tweets/boy"
+API_URL_B = "http://127.0.0.1:8000/stats/boy/political-leaning"
 API_URL_G = "http://127.0.0.1:8000/tweets/girl"
+
+st.area_chart
 
 try:
     response_boy = requests.get(API_URL_B)
@@ -23,7 +25,7 @@ try:
     st.json(data_boy["tweets"][:5])
 
     st.write("Tweet count girl:", data_girl["count"])
-    st.json(data_girl["tweets"][:5])
+   # st.json(data_girl["tweets"][:5])
 
 
 except Exception as e:

@@ -27,3 +27,60 @@ def get_boy_tweets():
 def get_girl_tweets():
     data = list(girltwitter.find({}, {"_id": 0}))
     return {"count": len(data), "tweets": data}
+
+#Aggregating dates and political leaning
+def counts_by_date_and_leaning(collection):
+    pipeline = [
+        #Creating "date_str" field from image_name and removing .png
+        {
+            "$addFields": {
+                "date_str": {
+                    "$replaceAll": {
+                        "input": "$image_name",
+                        "find": ".png",
+                        "replacement": ""
+                    }
+                }
+            }
+        },
+        #Grouping by date_str AND sentiment.political_leaning
+        {
+            "$group": {
+                "_id": {
+                    "date": "$date_str",
+                    "leaning": "$sentiment.political_leaning"
+                    },
+                "count": {"$sum": 1}
+            }
+        },
+        #Shaping output
+        {
+            "$project": {
+                "_id": 0,
+                "date": "$_id.date",
+                "political_leaning": "$_id.leaning",
+                "count": 1
+            }
+        },
+        #Sorting by date 
+        {"$sort": {"date": 1}}
+    ]
+    return list(collection.aggregate(pipeline))
+
+@app.get("/stats/boy/political-leaning")
+def boy_stats():
+    result = counts_by_date_and_leaning(boytwitter)
+    print("Boy stats:")
+    for r in result:
+        print(r)
+    return {"series": result}
+
+@app.get("/stats/girl/political-leaning")
+def boy_stats():
+    result = counts_by_date_and_leaning(boytwitter)
+    print("Girl stats:")
+    for r in result:
+        print(r)
+    return {"series": result}
+
+
