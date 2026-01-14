@@ -2,8 +2,8 @@ import streamlit as st
 import requests
 import pandas as pd
 
-API_URL_B = "http://127.0.0.1:8000/stats/boy/political-leaning"
-API_URL_G = "http://127.0.0.1:8000/stats/girl/political-leaning"
+API_URL_B = "https://echochamber-q214.onrender.com/stats/boy/political-leaning"
+API_URL_G = "https://echochamber-q214.onrender.com/stats/girl/political-leaning"
 
 phases = [
     {
