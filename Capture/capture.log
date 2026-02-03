@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/trinvillaruel/Desktop/Final Year Project/EchoChamber/Capture/capture-image-twitter.py", line 1, in <module>
+    import os, time, pyautogui, schedule
+ModuleNotFoundError: No module named 'pyautogui'

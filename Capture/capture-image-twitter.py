@@ -24,8 +24,8 @@ def delete_contents(file_path):
             os.remove(os.path.join(file_path, image_name))
 
 #Scheduling tasks every sunday
-schedule.every().tuesday.at("20:20").do(take_screenshots, TWITTER_BOY)
-schedule.every().tuesday.at("20:25").do(take_screenshots, TWITTER_GIRL)
+schedule.every().thursday.at("19:01").do(take_screenshots, TWITTER_BOY)
+schedule.every().thursday.at("19:06").do(take_screenshots, TWITTER_GIRL)
 schedule.every().tuesday.at("19:00").do(delete_contents, TWITTER_GIRL)
 schedule.every().tuesday.at("19:00").do(delete_contents, TWITTER_BOY)
 
