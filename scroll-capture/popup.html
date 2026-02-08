@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { font-family: system-ui; padding: 12px; width: 220px; }
+      button { width: 100%; padding: 10px; margin: 6px 0; }
+      .row { display: flex; gap: 8px; }
+      .row button { width: 50%; }
+      .status { margin-top: 8px; font-size: 12px; opacity: 0.8; }
+      select { width: 100%; padding: 8px; margin: 6px 0; }
+    </style>
+  </head>
+  <body>
+    <div><b>Capture profile</b></div>
+
+    <select id="profile">
+      <option value="boy">Boy</option>
+      <option value="girl">Girl</option>
+    </select>
+
+    <div class="row">
+      <button id="start">Start</button>
+      <button id="stop">Stop</button>
+    </div>
+
+    <div class="status" id="status">Idle</div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
