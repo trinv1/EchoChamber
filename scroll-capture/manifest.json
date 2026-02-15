@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Step 1 - Dropdown",
+  "name": "Step 2 - Scroll",
   "version": "1.0.0",
   "action": { "default_popup": "popup.html" },
-  "permissions": ["storage"]
+  "background": { "service_worker": "background.js" },
+  "permissions": ["activeTab","scripting","storage"]
 }
