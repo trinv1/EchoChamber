@@ -4,5 +4,6 @@
   "version": "1.0.0",
   "action": { "default_popup": "popup.html" },
   "background": { "service_worker": "background.js" },
-  "permissions": ["activeTab","scripting","storage"]
+  "permissions": ["downloads","activeTab","scripting","storage"],
+  "host_permissions": ["https://www.amazon.ie*", "https://echochamber-q214.onrender.com/*"]
 }

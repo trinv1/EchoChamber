@@ -1,4 +1,7 @@
 let currentTabId = null;
+let captureTimer = null;
+let capturingTabId = null;
+let isUploading = false; // prevents overlapping uploads
 
 //Injecting content.js into current tab
 async function ensureContentScript(tabId) {
@@ -8,18 +11,89 @@ async function ensureContentScript(tabId) {
   });
 }
 
+//Fetching data url and converting to binary
+async function dataUrlToBlob(dataUrl) {
+  return await (await fetch(dataUrl)).blob();
+}
+
+//Upload one capture to Render
+async function uploadToRender({ dataUrl, tabId, pageUrl }) {
+  const blob = await dataUrlToBlob(dataUrl);
+
+  const form = new FormData();
+  form.append("image", blob, `capture-${Date.now()}.jpg`);
+  form.append("tabId", String(tabId));
+  form.append("pageUrl", pageUrl ?? "");
+  form.append("ts", String(Date.now()));
+
+  const res = await fetch("https://echochamber-q214.onrender.com/upload", {
+    method: "POST",
+    body: form
+  });
+
+  if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+  return await res.json().catch(() => ({}));
+}
+
+//Start capture+upload loop
+async function startCaptureLoop(tabId, intervalMs = 1000) {
+  stopCaptureLoop();
+  capturingTabId = tabId;
+
+  captureTimer = setInterval(async () => {
+    //avoid overlapping uploads if network is slow
+    if (isUploading) return;
+    isUploading = true;
+
+    try {
+      const tab = await chrome.tabs.get(capturingTabId);
+
+      //Capture visible tab in the window
+      const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
+        format: "jpeg",
+        quality: 70
+      });
+
+      await uploadToRender({
+        dataUrl,
+        tabId: capturingTabId,
+        pageUrl: tab.url
+      });
+    } catch (e) {
+      console.warn("Capture/upload failed:", e);
+
+    } finally {
+      isUploading = false;
+    }
+  }, intervalMs);
+}
+
+//Stop capturing
+function stopCaptureLoop() {
+  if (captureTimer) clearInterval(captureTimer);
+  captureTimer = null;
+  capturingTabId = null;
+  isUploading = false;
+}
+
 //Listening for message to start or stop scrolling from popup.js
-chrome.runtime.onMessage.addListener((msg) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     if (msg.type == "START") {
       currentTabId = msg.tabId;
       await ensureContentScript(currentTabId);
       await chrome.tabs.sendMessage(currentTabId, { type: "START_SCROLL" });
+    
+    //start capturing + uploading
+      await startCaptureLoop(currentTabId, msg.captureEveryMs ?? 1000);
     }
+
     if (msg.type == "STOP") {
       const tabId = msg.tabId ?? currentTabId
       if (!tabId) return; 
      await chrome.tabs.sendMessage(tabId, { type: "STOP_SCROLL" });
+    stopCaptureLoop();
     }
   })();
+  return true;
 });
