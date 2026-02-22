@@ -2,6 +2,8 @@ let currentTabId = null;
 let captureTimer = null;
 let capturingTabId = null;
 let isUploading = false; // prevents overlapping uploads
+let backoffUntil = 0; // timestamp (ms). If now < this, skip attempts.
+
 
 //Injecting content.js into current tab
 async function ensureContentScript(tabId) {
@@ -43,6 +45,8 @@ async function startCaptureLoop(tabId, intervalMs = 1000) {
   captureTimer = setInterval(async () => {
     //avoid overlapping uploads if network is slow
     if (isUploading) return;
+      if (Date.now() < backoffUntil) return; // ✅ backoff active, skip this tick
+
     isUploading = true;
 
     try {
@@ -61,7 +65,7 @@ async function startCaptureLoop(tabId, intervalMs = 1000) {
       });
     } catch (e) {
       console.warn("Capture/upload failed:", e);
-
+      backoffUntil = Date.now() + 3000; // ✅ wait 3 seconds after a failure
     } finally {
       isUploading = false;
     }

@@ -3,10 +3,10 @@ from datetime import datetime
 from pymongo import MongoClient
 import uvicorn
 from dotenv import load_dotenv
-import os
+import os, traceback, time
 import base64
 import json
-from datetime import datetime, timezone, time
+from datetime import datetime, timezone
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -109,6 +109,12 @@ async def upload_image(
     ts: str = Form(""),
 ):
     try:
+
+         # 1) Read bytes
+        data = await image.read()
+        if not data:
+            raise ValueError("Empty upload")
+        
         safe_name = (image.filename or "capture.jpg").replace("/", "_").replace("\\", "_")
         filename = f"{int(time.time() * 1000)}_{safe_name}"
         path = os.path.join("/tmp", filename)
@@ -127,6 +133,8 @@ async def upload_image(
         }
 
     except Exception as e:
+        print("UPLOAD ERROR:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
