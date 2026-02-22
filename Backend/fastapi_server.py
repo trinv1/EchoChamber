@@ -10,7 +10,7 @@ from bson import Binary
 
 load_dotenv()
 
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+#openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 MONGO_URI = os.getenv("MONGO_URI")
 
