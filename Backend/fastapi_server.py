@@ -10,7 +10,8 @@ from bson import Binary
 
 load_dotenv()
 
-#openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+PROCESSOR_ENABLED = os.getenv("PROCESSOR_ENABLED", "0") == "1"
 
 MONGO_URI = os.getenv("MONGO_URI")
 
@@ -129,3 +130,9 @@ async def upload(
 
     ins = captures.insert_one(doc)
     return {"ok": True, "id": str(ins.inserted_id)}
+
+#Endpoint to check server can see queued docs
+@app.get("/debug/queue")
+def debug_queue():
+    q = list(captures.find({"status": "queued"}, {"image_bytes": 0}).sort("created_at", 1).limit(5))
+    return {"queued_sample": q, "queued_count": captures.count_documents({"status": "queued"})}
