@@ -9,6 +9,11 @@ import json
 from datetime import datetime, timezone, time
 from fastapi.middleware.cors import CORSMiddleware
 
+import pkgutil, sys
+print("PYTHON:", sys.version)
+print("python-multipart installed?", pkgutil.find_loader("multipart") is not None)
+
+
 load_dotenv()
 
 #openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
