@@ -27,6 +27,7 @@ async function uploadToRender({ dataUrl, tabId, pageUrl }) {
   form.append("tabId", String(tabId));
   form.append("pageUrl", pageUrl ?? "");
   form.append("ts", String(Date.now()));
+  form.append("account", "boy");
 
   const res = await fetch("https://echochamber-q214.onrender.com/upload", {
     method: "POST",

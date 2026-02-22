@@ -1,18 +1,16 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from datetime import datetime
 from pymongo import MongoClient
-import uvicorn
 from dotenv import load_dotenv
 import os, traceback, time
-import base64
-import json
 from datetime import datetime, timezone
 from fastapi.middleware.cors import CORSMiddleware
-
+from openai import OpenAI
+from bson import Binary
 
 load_dotenv()
 
-#openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 MONGO_URI = os.getenv("MONGO_URI")
 
@@ -20,12 +18,13 @@ client = MongoClient(MONGO_URI)
 db = client["SocialMediaDB"]
 girltwitter = db["girltwitter"]
 boytwitter = db["boytwitter"]
+captures = db["captures"]
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # OK for testing. Tighten later.
+    allow_origins=["*"],  
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -102,39 +101,31 @@ os.makedirs("uploads", exist_ok=True)
 
 #Endpoint to upload image
 @app.post("/upload")
-async def upload_image(
+async def upload(
     image: UploadFile = File(...),
     tabId: str = Form(""),
     pageUrl: str = Form(""),
     ts: str = Form(""),
+    account: str = Form(""),  
 ):
-    try:
+    data = await image.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty image")
 
-         # 1) Read bytes
-        data = await image.read()
-        if not data:
-            raise ValueError("Empty upload")
-        
-        safe_name = (image.filename or "capture.jpg").replace("/", "_").replace("\\", "_")
-        filename = f"{int(time.time() * 1000)}_{safe_name}"
-        path = os.path.join("/tmp", filename)
+    image_name = image.filename or f"{ts or int(datetime.now().timestamp())}.jpg"
 
-        contents = await image.read()
-        with open(path, "wb") as f:
-            f.write(contents)
+    doc = {
+        "created_at": datetime.now(timezone.utc),
+        "image_name": image_name,
+        "tabId": tabId,
+        "pageUrl": pageUrl,
+        "ts": ts,
+        "account": account,
+        "content_type": image.content_type or "image/jpeg",
+        "image_bytes": Binary(data),
+        "status": "queued",
+        "tries": 0
+    }
 
-        return {
-            "ok": True,
-            "filename": filename,
-            "size_bytes": len(contents),
-            "tabId": tabId,
-            "pageUrl": pageUrl,
-            "ts": ts,
-        }
-
-    except Exception as e:
-        print("UPLOAD ERROR:", repr(e))
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
-
-
+    ins = captures.insert_one(doc)
+    return {"ok": True, "id": str(ins.inserted_id)}
