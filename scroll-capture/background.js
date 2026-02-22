@@ -17,8 +17,9 @@ chrome.runtime.onMessage.addListener((msg) => {
       await chrome.tabs.sendMessage(currentTabId, { type: "START_SCROLL" });
     }
     if (msg.type == "STOP") {
-      if (!currentTabId) return; 
-     await chrome.tabs.sendMessage(currentTabId, { type: "STOP_SCROLL" });
+      const tabId = msg.tabId ?? currentTabId
+      if (!tabId) return; 
+     await chrome.tabs.sendMessage(tabId, { type: "STOP_SCROLL" });
     }
   })();
 });

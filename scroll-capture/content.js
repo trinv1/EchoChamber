@@ -1,4 +1,4 @@
-let running = false;
+//let running = false;
 let rafId = null;
 
 let speed = 120; //px/sec (changes over time)

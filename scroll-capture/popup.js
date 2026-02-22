@@ -28,12 +28,13 @@ document.getElementById("start").addEventListener("click", async () => {
   const tab = await getActiveTab();
   await chrome.storage.local.set({ profile: profileEl.value });
   await chrome.runtime.sendMessage({ type: "START", tabId: tab.id });
-  statusEl.textContent = "Scrolling..";
+  statusEl.textContent = "Scrolling";
 });
 
 //Runs when stop button is clicked
 document.getElementById("stop").addEventListener("click", async () => {
-  await chrome.runtime.sendMessage({ type: "STOP" });
+  const tab = await getActiveTab();
+  await chrome.runtime.sendMessage({ type: "STOP", tabId: tab.id });
   statusEl.textContent = "Stopped";
 });
 
