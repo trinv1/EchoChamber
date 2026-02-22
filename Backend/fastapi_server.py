@@ -4,7 +4,6 @@ from pymongo import MongoClient
 import uvicorn
 from dotenv import load_dotenv
 import os
-from openai import OpenAI
 import base64
 import json
 from datetime import datetime, timezone, time
@@ -12,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+#openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 MONGO_URI = os.getenv("MONGO_URI")
 
