@@ -7,7 +7,8 @@ import os
 from openai import OpenAI
 import base64
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, time
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
@@ -21,6 +22,14 @@ girltwitter = db["girltwitter"]
 boytwitter = db["boytwitter"]
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],   # OK for testing. Tighten later.
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 #Getting all tweets from boy account
 @app.get("/tweets/boy")
@@ -88,4 +97,36 @@ def girl_stats():
     for r in result:
         print(r)
     return {"series": result}
+
+os.makedirs("uploads", exist_ok=True)
+
+#Endpoint to upload image
+@app.post("/upload")
+async def upload_image(
+    image: UploadFile = File(...),
+    tabId: str = Form(""),
+    pageUrl: str = Form(""),
+    ts: str = Form(""),
+):
+    try:
+        safe_name = (image.filename or "capture.jpg").replace("/", "_").replace("\\", "_")
+        filename = f"{int(time.time() * 1000)}_{safe_name}"
+        path = os.path.join("uploads", filename)
+
+        contents = await image.read()
+        with open(path, "wb") as f:
+            f.write(contents)
+
+        return {
+            "ok": True,
+            "filename": filename,
+            "size_bytes": len(contents),
+            "tabId": tabId,
+            "pageUrl": pageUrl,
+            "ts": ts,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
