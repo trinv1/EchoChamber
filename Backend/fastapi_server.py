@@ -99,6 +99,33 @@ def girl_stats():
 
 os.makedirs("uploads", exist_ok=True)
 
+#Endpoint to upload image
+@app.post("/upload")
+async def upload_image(
+    image: UploadFile = File(...),
+    tabId: str = Form(""),
+    pageUrl: str = Form(""),
+    ts: str = Form(""),
+):
+    try:
+        safe_name = (image.filename or "capture.jpg").replace("/", "_").replace("\\", "_")
+        filename = f"{int(time.time() * 1000)}_{safe_name}"
+        path = os.path.join("uploads", filename)
 
+        contents = await image.read()
+        with open(path, "wb") as f:
+            f.write(contents)
+
+        return {
+            "ok": True,
+            "filename": filename,
+            "size_bytes": len(contents),
+            "tabId": tabId,
+            "pageUrl": pageUrl,
+            "ts": ts,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
