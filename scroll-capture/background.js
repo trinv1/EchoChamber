@@ -39,14 +39,14 @@ async function uploadToRender({ dataUrl, tabId, pageUrl }) {
 }
 
 //Start capture+upload loop
-async function startCaptureLoop(tabId, intervalMs = 1000) {
+async function startCaptureLoop(tabId, intervalMs = 1500) {
   stopCaptureLoop();
   capturingTabId = tabId;
 
   captureTimer = setInterval(async () => {
     //avoid overlapping uploads if network is slow
     if (isUploading) return;
-      if (Date.now() < backoffUntil) return; // ✅ backoff active, skip this tick
+      if (Date.now() < backoffUntil) return; //backoff active, skip this tick
 
     isUploading = true;
 
@@ -66,7 +66,7 @@ async function startCaptureLoop(tabId, intervalMs = 1000) {
       });
     } catch (e) {
       console.warn("Capture/upload failed:", e);
-      backoffUntil = Date.now() + 3000; // ✅ wait 3 seconds after a failure
+      backoffUntil = Date.now() + 3000; //wait 3 seconds after a failure
     } finally {
       isUploading = false;
     }
