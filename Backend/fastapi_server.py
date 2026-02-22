@@ -9,10 +9,6 @@ import json
 from datetime import datetime, timezone, time
 from fastapi.middleware.cors import CORSMiddleware
 
-import pkgutil, sys
-print("PYTHON:", sys.version)
-print("python-multipart installed?", pkgutil.find_loader("multipart") is not None)
-
 
 load_dotenv()
 
@@ -115,7 +111,7 @@ async def upload_image(
     try:
         safe_name = (image.filename or "capture.jpg").replace("/", "_").replace("\\", "_")
         filename = f"{int(time.time() * 1000)}_{safe_name}"
-        path = os.path.join("uploads", filename)
+        path = os.path.join("/tmp", filename)
 
         contents = await image.read()
         with open(path, "wb") as f:
