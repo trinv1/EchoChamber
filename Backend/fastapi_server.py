@@ -134,5 +134,5 @@ async def upload(
 #Endpoint to check server can see queued docs
 @app.get("/debug/queue")
 def debug_queue():
-    q = list(captures.find({"status": "queued"}, {"image_bytes": 0}).sort("created_at", 1).limit(5))
+    q = list(captures.find({"status": "queued"}, {"image_bytes": 0, "_id": 0}).sort("created_at", 1).limit(5))
     return {"queued_sample": q, "queued_count": captures.count_documents({"status": "queued"})}
