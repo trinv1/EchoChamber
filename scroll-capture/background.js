@@ -3,7 +3,7 @@ let captureTimer = null;
 let capturingTabId = null;
 let isUploading = false; // prevents overlapping uploads
 let backoffUntil = 0; // timestamp (ms). If now < this, skip attempts.
-
+let currentAccount = "boy";
 
 //Injecting content.js into current tab
 async function ensureContentScript(tabId) {
@@ -27,7 +27,7 @@ async function uploadToRender({ dataUrl, tabId, pageUrl }) {
   form.append("tabId", String(tabId));
   form.append("pageUrl", pageUrl ?? "");
   form.append("ts", String(Date.now()));
-  form.append("account", "boy");
+  form.append("account", currentAccount);
 
   const res = await fetch("https://echochamber-q214.onrender.com/upload", {
     method: "POST",
@@ -86,6 +86,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     if (msg.type == "START") {
       currentTabId = msg.tabId;
+      currentAccount = msg.account ?? "boy";
       await ensureContentScript(currentTabId);
       await chrome.tabs.sendMessage(currentTabId, { type: "START_SCROLL" });
     

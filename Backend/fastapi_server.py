@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from bson import Binary
+import json
+import base64
 
 load_dotenv()
 
@@ -18,32 +20,6 @@ MONGO_URI = os.getenv("MONGO_URI")
 BATCH_SIZE = 5
 BATCH_SLEEP_SEC = 60
 IDLE_SLEEP_SEC = 3
-
-SYSTEM_PROMPT = (
-    "You are a Twitter screenshot parser. "
-    "Extract ONLY the FIRST main tweet visible in the screenshot. "
-    "Return ONLY valid JSON. No markdown, no backticks, no explanations.\n"
-    "{\n"
-    "  \"username\": \"\",\n"
-    "  \"display_name\": \"\",\n"
-    "  \"tweet\": \"\",\n"
-    "  \"likes\": \"\",\n"
-    "  \"retweets\": \"\",\n"
-    "  \"replies\": \"\"\n"
-    "}\n"
-)
-
-USER_PROMPT = (
-    "Extract all visible information for ONLY the first main tweet. "
-    "Do NOT include replies unless they are part of the first tweet. "
-    "Required fields:\n"
-    "- username (@handle)\n"
-    "- display_name\n"
-    "- tweet text\n"
-    "- likes count\n"
-    "- retweets count\n"
-    "Return ONLY valid JSON. No extra text."
-)
 
 client = MongoClient(MONGO_URI)
 db = client["SocialMediaDB"]
@@ -167,18 +143,102 @@ def debug_queue():
     q = list(captures.find({"status": "queued"}, {"image_bytes": 0, "_id": 0}).sort("created_at", 1).limit(5))
     return {"queued_sample": q, "queued_count": captures.count_documents({"status": "queued"})}
 
+#Helper function to process one captured image
 def process_one_capture(doc):
-    #1 read image bytes
-    #2 call OpenAI vision to extract JSON
-    #3 insert into boytwitter or girltwitter
-    #4 update captures status to done/error
-    pass
+    #Get image bytes from mongo document
+    image_bytes = doc["image_bytes"]
+    content_type = doc.get("content_type", "image/jpeg")
+
+    #Convert image bytes to base64 for OpenAI input
+    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+
+    #Calling API and creating chat completion request
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a Twitter screenshot parser. "
+                    "Extract ONLY the FIRST main tweet visible in the screenshot. "
+                    "Return ONLY valid JSON. No markdown, no backticks, no explanations.\n"
+                    "{\n"
+                    "  \"username\": \"\",\n"
+                    "  \"display_name\": \"\",\n"
+                    "  \"tweet\": \"\",\n"
+                    "  \"likes\": \"\",\n"
+                    "  \"retweets\": \"\",\n"
+                    "  \"replies\": \"\"\n"
+                    "}\n"
+                )
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Extract all visible information for ONLY the first main tweet. "
+                            "Do NOT include replies unless they are part of the first tweet. "
+                            "Required fields:\n"
+                            "- username (@handle)\n"
+                            "- display_name\n"
+                            "- tweet text\n"
+                            "- likes count\n"
+                            "- retweets count\n"
+                            "Return ONLY valid JSON. No extra text."
+                        )
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{content_type};base64,{image_b64}"
+                        }
+                    }
+                ]
+            }
+        ]
+    )
+
+    #Extracting model output (JSON string)
+    json_output = response.choices[0].message.content
+
+    #Parsing JSON returned by model
+    parsed = json.loads(json_output)
+
+    #Choosing destination collection
+    account = (doc.get("account") or "").lower()
+    if account == "boy":
+        collection = boytwitter
+    elif account == "girl":
+        collection = girltwitter
+    else:
+        collection = db["parsedtweets"]
+
+     #Saving parsed tweet to Mongo
+    collection.insert_one({
+    "image_name": doc.get("image_name", ""),
+    "username": parsed.get("username", ""),
+    "display_name": parsed.get("display_name", ""),
+    "tweet": parsed.get("tweet", ""),
+    "likes": parsed.get("likes", ""),
+    "retweets": parsed.get("retweets", ""),
+    })
+
+    #Mark original capture as processed
+    captures.update_one(
+        {"_id": doc["_id"]},
+        {"$set": {"status": "done", "processed_at": datetime.now(timezone.utc)}}
+    )
+
+    return parsed
+
 
 @app.post("/process/one")
 def process_one():
     doc = captures.find_one({"status": "queued"})
     if not doc:
         return {"ok": True, "msg": "nothing queued"}
-
-    # call your process_one_capture(doc) here (we’ll wire next)
+    
+    parsed = process_one_capture(doc)
     return {"ok": True, "id": str(doc["_id"])}

@@ -27,7 +27,7 @@ profileEl.addEventListener("change", async () => {
 document.getElementById("start").addEventListener("click", async () => {
   const tab = await getActiveTab();
   await chrome.storage.local.set({ profile: profileEl.value });
-  await chrome.runtime.sendMessage({ type: "START", tabId: tab.id, captureEveryMs: 800 });
+  await chrome.runtime.sendMessage({ type: "START", tabId: tab.id, captureEveryMs: 800,   account: profileEl.value });
   statusEl.textContent = "Scrolling";
 });
 
