@@ -15,6 +15,36 @@ PROCESSOR_ENABLED = os.getenv("PROCESSOR_ENABLED", "0") == "1"
 
 MONGO_URI = os.getenv("MONGO_URI")
 
+BATCH_SIZE = 5
+BATCH_SLEEP_SEC = 60
+IDLE_SLEEP_SEC = 3
+
+SYSTEM_PROMPT = (
+    "You are a Twitter screenshot parser. "
+    "Extract ONLY the FIRST main tweet visible in the screenshot. "
+    "Return ONLY valid JSON. No markdown, no backticks, no explanations.\n"
+    "{\n"
+    "  \"username\": \"\",\n"
+    "  \"display_name\": \"\",\n"
+    "  \"tweet\": \"\",\n"
+    "  \"likes\": \"\",\n"
+    "  \"retweets\": \"\",\n"
+    "  \"replies\": \"\"\n"
+    "}\n"
+)
+
+USER_PROMPT = (
+    "Extract all visible information for ONLY the first main tweet. "
+    "Do NOT include replies unless they are part of the first tweet. "
+    "Required fields:\n"
+    "- username (@handle)\n"
+    "- display_name\n"
+    "- tweet text\n"
+    "- likes count\n"
+    "- retweets count\n"
+    "Return ONLY valid JSON. No extra text."
+)
+
 client = MongoClient(MONGO_URI)
 db = client["SocialMediaDB"]
 girltwitter = db["girltwitter"]
@@ -136,3 +166,19 @@ async def upload(
 def debug_queue():
     q = list(captures.find({"status": "queued"}, {"image_bytes": 0, "_id": 0}).sort("created_at", 1).limit(5))
     return {"queued_sample": q, "queued_count": captures.count_documents({"status": "queued"})}
+
+def process_one_capture(doc):
+    #1 read image bytes
+    #2 call OpenAI vision to extract JSON
+    #3 insert into boytwitter or girltwitter
+    #4 update captures status to done/error
+    pass
+
+@app.post("/process/one")
+def process_one():
+    doc = captures.find_one({"status": "queued"})
+    if not doc:
+        return {"ok": True, "msg": "nothing queued"}
+
+    # call your process_one_capture(doc) here (we’ll wire next)
+    return {"ok": True, "id": str(doc["_id"])}
