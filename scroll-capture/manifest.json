@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Step 2 - Scroll",
+  "name": "Scroll & Capture Plugin",
   "version": "1.0.0",
   "action": { "default_popup": "popup.html" },
   "background": { "service_worker": "background.js" },
