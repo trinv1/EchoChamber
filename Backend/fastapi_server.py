@@ -9,6 +9,7 @@ from openai import OpenAI
 from bson import Binary
 import json
 import base64
+import asyncio
 
 load_dotenv()
 
@@ -306,7 +307,7 @@ def process_run():
         # only sleep if there is still more work left
         remaining = captures.count_documents({"status": "queued"})
         if remaining > 0:
-            print("Sleeping 60 seconds before next batch...")
+            print("Sleeping 60 seconds before next batch")
             time.sleep(60)
 
     return {
@@ -315,3 +316,46 @@ def process_run():
         "processed": total_processed,
         "failed": total_failed
     }
+
+#Background worker that keeps processing docs
+async def processing_worker():
+    total_processed = 0
+    total_failed = 0
+    batch_num = 0
+
+    while True:
+        batch = list(captures.find({"status": "queued"}).sort("created_at", 1).limit(10))
+
+        if not batch:
+            await asyncio.sleep(5)
+            continue
+
+        batch_num += 1
+        processed = 0
+        failed = 0
+
+        for doc in batch:
+            try:
+                process_one_capture(doc)
+                processed += 1
+                total_processed += 1
+            except Exception as e:
+                failed += 1
+                total_failed += 1
+                captures.update_one(
+                    {"_id": doc["_id"]},
+                    {"$set": {"status": "error", "error": str(e)}}
+                )
+
+        print(f"Batch {batch_num}: processed={processed}, failed={failed}")
+
+        # only sleep if there is still more work left
+        remaining = captures.count_documents({"status": "queued"})
+        if remaining > 0:
+            print("Sleeping 60 seconds before next batch")
+            await asyncio.sleep(60)
+
+#Launching when app starts
+@app.on_event("startup")
+async def start_background_worker():
+    asyncio.create_task(processing_worker())
