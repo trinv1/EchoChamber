@@ -217,7 +217,7 @@ def process_one_capture(doc):
 
      #Saving parsed tweet to Mongo
     collection.insert_one({
-    "image_name": doc.get("image_name", ""),
+    "image_name": datetime.now().strftime("%d-%m-%Y"),
     "username": parsed.get("username", ""),
     "display_name": parsed.get("display_name", ""),
     "tweet": parsed.get("tweet", ""),
@@ -233,7 +233,7 @@ def process_one_capture(doc):
 
     return parsed
 
-
+#Endpoint to process 1 doc in capture
 @app.post("/process/one")
 def process_one():
     doc = captures.find_one({"status": "queued"})
@@ -242,3 +242,31 @@ def process_one():
     
     parsed = process_one_capture(doc)
     return {"ok": True, "id": str(doc["_id"])}
+
+#Endopoint to process documents in batches 
+@app.post("/process/batch")
+def process_batch():
+    batch = list(captures.find({"status": "queued"}).sort("created_at", 1).limit(5))
+
+    if not batch:
+        return {"ok": True, "message": "No queued captures found", "processed": 0}
+
+    processed = 0
+    failed = 0
+
+    for doc in batch:
+        try:
+            process_one_capture(doc)
+            processed += 1
+        except Exception as e:
+            failed += 1
+            captures.update_one(
+                {"_id": doc["_id"]},
+                {"$set": {"status": "error", "error": str(e)}}
+            )
+
+    return {
+        "ok": True,
+        "processed": processed,
+        "failed": failed
+    }
