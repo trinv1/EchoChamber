@@ -232,15 +232,19 @@ def process_one_capture(doc):
     else:
         collection = db["parsedtweets"]
 
-     #Saving parsed tweet to Mongo
-    collection.insert_one({
-    "image_name": datetime.now().strftime("%d-%m-%Y"),
-    "username": parsed.get("username", ""),
-    "display_name": parsed.get("display_name", ""),
-    "tweet": parsed.get("tweet", ""),
-    "likes": parsed.get("likes", ""),
-    "retweets": parsed.get("retweets", ""),
-    })
+    tweets = parsed.get("tweets", [])
+
+    #Saving parsed tweets to mongo
+    for item in tweets:
+        collection.insert_one({
+            "image_name": datetime.now().strftime("%d-%m-%Y"),
+            "username": item.get("username", ""),
+            "display_name": item.get("display_name", ""),
+            "tweet": item.get("tweet", ""),
+            "likes": item.get("likes", ""),
+            "retweets": item.get("retweets", ""),
+            "replies": item.get("replies", ""),
+        })
 
     #Mark original capture as processed
     captures.update_one(
