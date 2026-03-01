@@ -222,6 +222,7 @@ def process_one_capture(doc):
 
     #Parsing JSON returned by model
     parsed = json.loads(json_output)
+    tweets = parsed.get("tweets", [])
 
     #Choosing destination collection
     account = (doc.get("account") or "").lower()
@@ -232,7 +233,13 @@ def process_one_capture(doc):
     else:
         collection = db["parsedtweets"]
 
-    tweets = parsed.get("tweets", [])
+    #If tweet doesnt exist dont save
+    if not tweets:
+        captures.update_one(
+            {"_id": doc["_id"]},
+            {"$set": {"status": "done", "note": "No tweets extracted"}}
+        )
+        return []
 
     #Saving parsed tweets to mongo
     for item in tweets:
