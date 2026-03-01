@@ -23,7 +23,7 @@ async function uploadToRender({ dataUrl, tabId, pageUrl }) {
   const blob = await dataUrlToBlob(dataUrl);
 
   const form = new FormData();
-  form.append("image", blob, datetime.now().strftime('%d-%m-%Y'));
+  form.append("image", blob, `${new Date().toISOString()}.jpg`);
   form.append("tabId", String(tabId));
   form.append("pageUrl", pageUrl ?? "");
   form.append("ts", String(Date.now()));

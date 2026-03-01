@@ -1,4 +1,4 @@
-//let running = false;
+let running = false;
 let rafId = null;
 
 let speed = 120; //px/sec (changes over time)
@@ -36,7 +36,7 @@ function frameUpdate(ts){
 
   //Wander speed a bit
   speed += (Math.random() * 2 - 1) * 70 * dt;
-  speed = Math.max(60, Math.min(260, speed));  //never above 400 never below 60
+  speed = Math.max(200, Math.min(500, speed));  //never above 400 never below 60
 
   //Occasionally entering a "tempo" phase (slow browse/normal/fast burst)
   if (Date.now() > tempoUntil && Math.random() < 0.015) {
