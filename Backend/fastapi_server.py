@@ -358,4 +358,8 @@ async def processing_worker():
 #Launching when app starts
 @app.on_event("startup")
 async def start_background_worker():
-    asyncio.create_task(processing_worker())
+    if PROCESSOR_ENABLED:
+        asyncio.create_task(processing_worker())
+        print("Background processor started")
+    else:
+        print("Background processor disabled")
