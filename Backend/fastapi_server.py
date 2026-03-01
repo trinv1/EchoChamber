@@ -18,7 +18,7 @@ PROCESSOR_ENABLED = os.getenv("PROCESSOR_ENABLED", "0") == "1"
 
 MONGO_URI = os.getenv("MONGO_URI")
 
-BATCH_SIZE = 5
+BATCH_SIZE = 10
 BATCH_SLEEP_SEC = 60
 IDLE_SLEEP_SEC = 3
 
@@ -261,126 +261,138 @@ def process_one_capture(doc):
 
     return parsed
 
-#Endpoint to process 1 doc in capture
-@app.post("/process/one")
-def process_one():
-    doc = captures.find_one({"status": "queued"})
-    if not doc:
-        return {"ok": True, "msg": "nothing queued"}
-    
-    parsed = process_one_capture(doc)
-    return {"ok": True, "id": str(doc["_id"])}
+def process_one_sentiment(collection, doc):
 
-#Endopoint to process documents in batches 
-@app.post("/process/batch")
-def process_batch():
-    batch = list(captures.find({"status": "queued"}).sort("created_at", 1).limit(5))
+    #Getting tweet from document
+    tweet_text = doc["tweet"]
 
-    if not batch:
-        return {"ok": True, "message": "No queued captures found", "processed": 0}
+    #Calling API and creating chat completion request
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a sentiment and political-alignment classifier. "
+                    "Classify content based ONLY on language, framing, and expressed positions. "
+                    "Do not apply moral judgment or assume correctness of any viewpoint. "
 
-    processed = 0
-    failed = 0
+                    "LEFT-LEANING: "
+                    "- emphasizes collective responsibility, systemic or structural explanations; "
+                    "- focuses on equality, redistribution, or group-level outcomes; "
+                    "- supports expanded government, regulation, or institutional intervention; "
+                    "- uses framing aligned with progressive, socialist, or egalitarian traditions. "
 
-    for doc in batch:
-        try:
-            process_one_capture(doc)
-            processed += 1
-        except Exception as e:
-            failed += 1
-            captures.update_one(
-                {"_id": doc["_id"]},
-                {"$set": {"status": "error", "error": str(e)}}
-            )
+                    "RIGHT-LEANING: "
+                    "- emphasizes individual responsibility, national identity, or cultural continuity; "
+                    "- focuses on sovereignty, borders, security, tradition, or market outcomes; "
+                    "- supports limited government, enforcement, or established institutions; "
+                    "- uses framing aligned with conservative, nationalist, or free-market traditions. "
 
-    return {
-        "ok": True,
-        "processed": processed,
-        "failed": failed
-    }
+                    "CENTRIST / MODERATE: "
+                    "- balances or mixes left and right framing; "
+                    "- focuses on pragmatism, trade-offs, or incremental change; "
+                    "- avoids strong ideological or absolutist language. "
 
-#Endpoint that processes documents in batches until empty
-@app.post("/process/run")
-def process_run():
-    total_processed = 0
-    total_failed = 0
-    batch_num = 0
+                    "APOLITICAL: "
+                    "- contains no political claims, advocacy, or ideological framing; "
+                    "- topics such as sports, entertainment, personal anecdotes, or non-political news. "
 
-    while True:
-        batch = list(captures.find({"status": "queued"}).sort("created_at", 1).limit(10))
+                    "UNCLEAR: "
+                    "- insufficient or ambiguous information to infer political alignment. "
 
-        if not batch:
-            break
+                    "Rules: "
+                    "- Political alignment is inferred from the text itself, including both explicit ideological statements and implicit political signaling."
+                    "- Implicit political signaling includes framing, narratives, or language commonly associated with contemporary political factions, even if no policy or ideology is explicitly stated."
+                    "- Criticism of governments, religions, cultures, or ideologies is NOT inherently hateful."
+                    "- Emotional tone and toxicity are independent of political alignment. "
+                    "- Do not infer intent beyond the provided text. "
 
-        batch_num += 1
-        processed = 0
-        failed = 0
-
-        for doc in batch:
-            try:
-                process_one_capture(doc)
-                processed += 1
-                total_processed += 1
-            except Exception as e:
-                failed += 1
-                total_failed += 1
-                captures.update_one(
-                    {"_id": doc["_id"]},
-                    {"$set": {"status": "error", "error": str(e)}}
+                    "Output JSON format:\n"
+                    "{\n"
+                    "  \"emotional_valence\": \"positive | neutral | negative | serious\",\n"
+                    "  \"emotion_intensity\": 0.0 to 1.0,\n"
+                    "  \"moral_stance\": \"supportive | condemning | informative | neutral | sarcastic\",\n"
+                    "  \"political_leaning\": \"left | right | centre | apolitical | unclear\",\n"
+                    "  \"is_toxic\": true | false,\n"
+                    "  \"topic\": \"short neutral topic\"\n"
+                    "}\n"
                 )
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Tweet: {tweet_text}\n\nAnalyse the sentiment and return JSON only."
+                    }
+                ]
+            }
+        ]
+    )
 
-        print(f"Batch {batch_num}: processed={processed}, failed={failed}")
+    #Extracting model output (JSON string)
+    sentiment = json.loads(response.choices[0].message.content)
 
-        # only sleep if there is still more work left
-        remaining = captures.count_documents({"status": "queued"})
-        if remaining > 0:
-            print("Sleeping 60 seconds before next batch")
-            time.sleep(60)
-
-    return {
-        "ok": True,
-        "batches": batch_num,
-        "processed": total_processed,
-        "failed": total_failed
-    }
+    #Updating docs in mongo with sentiment
+    collection.update_one(
+    {"_id": doc["_id"]},
+    {"$set": {"sentiment": sentiment}}
+)
+    return sentiment
 
 #Background worker that keeps processing docs
 async def processing_worker():
-    total_processed = 0
-    total_failed = 0
-    batch_num = 0
-
     while True:
-        batch = list(captures.find({"status": "queued"}).sort("created_at", 1).limit(10))
+        capture_batch = list(captures.find({"status": "queued"}).sort("created_at", 1).limit(BATCH_SIZE))
+        girl_batch = list(girltwitter.find({"sentiment": {"$exists": False}}).limit(BATCH_SIZE))
+        boy_batch = list(boytwitter.find({"sentiment": {"$exists": False}}).limit(BATCH_SIZE))
 
-        if not batch:
-            await asyncio.sleep(5)
+        #Captures first
+        if capture_batch:
+            processed = 0
+            failed = 0
+
+            for doc in capture_batch:
+                try:
+                    await asyncio.to_thread(process_one_capture, doc)
+                    processed += 1
+                except Exception as e:
+                    failed += 1
+                    captures.update_one(
+                        {"_id": doc["_id"]},
+                        {"$set": {"status": "error", "error": str(e)}}
+                    )
+
+            await asyncio.sleep(BATCH_SLEEP_SEC)
+            continue
+                
+        #Performs sentiment analysis when captures is empty
+        if girl_batch:
+            processed = 0
+            failed = 0
+
+            for doc in girl_batch:
+                    await asyncio.to_thread(process_one_sentiment, girltwitter, doc)
+                    processed += 1
+
+            await asyncio.sleep(BATCH_SLEEP_SEC)
             continue
 
-        batch_num += 1
-        processed = 0
-        failed = 0
+        #Performs boy sentiment analysis when girl is empty
+        if boy_batch:
+            processed = 0
+            failed = 0
 
-        for doc in batch:
-            try:
-                process_one_capture(doc)
-                processed += 1
-                total_processed += 1
-            except Exception as e:
-                failed += 1
-                total_failed += 1
-                captures.update_one(
-                    {"_id": doc["_id"]},
-                    {"$set": {"status": "error", "error": str(e)}}
-                )
+            for doc in boy_batch:
+                    await asyncio.to_thread(process_one_sentiment, boytwitter, doc)
+                    processed += 1
 
-        print(f"Batch {batch_num}: processed={processed}, failed={failed}")
+            await asyncio.sleep(BATCH_SLEEP_SEC)
+            continue
 
-        # only sleep if there is still more work left
-        remaining = captures.count_documents({"status": "queued"})
-        if remaining > 0:
-            print("Sleeping 60 seconds before next batch")
-            await asyncio.sleep(60)
+        #Nothing to do
+        await asyncio.sleep(IDLE_SLEEP_SEC)
 
 #Launching when app starts
 @app.on_event("startup")
