@@ -10,6 +10,9 @@ from bson import Binary
 import json
 import base64
 import asyncio
+import re
+import hashlib
+from rapidfuzz import fuzz
 
 load_dotenv()
 
@@ -27,6 +30,9 @@ db = client["SocialMediaDB"]
 girltwitter = db["girltwitter"]
 boytwitter = db["boytwitter"]
 captures = db["captures"]
+
+boytwitter.create_index("tweet_hash", unique=True, sparse=True)
+girltwitter.create_index("tweet_hash", unique=True, sparse=True)
 
 app = FastAPI()
 
@@ -144,6 +150,31 @@ def debug_queue():
     q = list(captures.find({"status": "queued"}, {"image_bytes": 0, "_id": 0}).sort("created_at", 1).limit(5))
     return {"queued_sample": q, "queued_count": captures.count_documents({"status": "queued"})}
 
+#Normalising tweets
+def normalize_tweet_text(text):
+    if not text:
+        return ""
+
+    text = text.lower().strip()
+    text = text.replace("\n", " ")
+    text = re.sub(r"http\S+", "", text)      #remove links
+    text = re.sub(r"[^a-z0-9\s]", "", text)  #remove punctuation
+    text = re.sub(r"\s+", " ", text).strip() #collapse repeated spaces
+    return text
+
+#Creating hash for tweet
+def make_tweet_hash(text):
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+#Near duplicate checking for api mistakes
+def similarity_score(a, b):
+    return max(
+        fuzz.ratio(a, b),
+        fuzz.partial_ratio(a, b),
+        fuzz.token_sort_ratio(a, b),
+        fuzz.token_set_ratio(a, b),
+    )
+
 #Helper function to process one captured image
 def process_one_capture(doc):
     #Get image bytes from mongo document
@@ -179,7 +210,6 @@ def process_one_capture(doc):
                 "      \"tweet\": \"\",\n"
                 "      \"likes\": \"\",\n"
                 "      \"retweets\": \"\",\n"
-                "      \"replies\": \"\"\n"
                 "    }\n"
                 "  ]\n"
                 "}\n"
@@ -201,7 +231,6 @@ def process_one_capture(doc):
                         "- tweet text\n"
                         "- likes count\n"
                         "- retweets count\n"
-                        "- replies count\n"
                         "Return all tweets in top-to-bottom order. "
                         "Return ONLY valid JSON in the required format."
                     )
@@ -241,16 +270,40 @@ def process_one_capture(doc):
         )
         return []
 
-    #Saving parsed tweets to mongo
+    #Checking if tweets are duplicates and saving to mongo
     for item in tweets:
+        tweet_text = item.get("tweet", "")
+        tweet_normalized = normalize_tweet_text(tweet_text)
+        tweet_hash = make_tweet_hash(tweet_normalized)
+
+        existing = collection.find_one({"tweet_hash": tweet_hash})
+        if existing:
+            continue
+
+        candidates = collection.find({
+            "username": item.get("username", ""),
+            "tweet_normalized": {"$exists": True}
+        }).limit(20)
+
+        is_duplicate = False
+        for candidate in candidates:
+            score = similarity_score(tweet_normalized, candidate.get("tweet_normalized", ""))
+            if score >= 94:
+                is_duplicate = True
+                break
+
+        if is_duplicate:
+            continue
+
         collection.insert_one({
             "image_name": datetime.now().strftime("%d-%m-%Y"),
             "username": item.get("username", ""),
             "display_name": item.get("display_name", ""),
             "tweet": item.get("tweet", ""),
+            "tweet_normalized": tweet_normalized,
+            "tweet_hash": tweet_hash,
             "likes": item.get("likes", ""),
             "retweets": item.get("retweets", ""),
-            "replies": item.get("replies", ""),
         })
 
     #Mark original capture as processed

@@ -6,5 +6,5 @@ fastapi
 uvicorn
 pymongo
 python-dotenv
-openai
 python-multipart
+fuzz
