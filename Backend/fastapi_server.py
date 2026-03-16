@@ -59,23 +59,11 @@ def get_girl_tweets():
 #Aggregating dates and political leaning
 def counts_by_date_and_leaning(collection):
     pipeline = [
-        #Creating "date_str" field from image_name and removing .png
-        {
-            "$addFields": {
-                "date_str": {
-                    "$replaceAll": {
-                        "input": "$image_name",
-                        "find": ".png",
-                        "replacement": ""
-                    }
-                }
-            }
-        },
-        #Grouping by date_str AND sentiment.political_leaning
+        #Grouping by image name AND sentiment.political_leaning
         {
             "$group": {
                 "_id": {
-                    "date": "$date_str",
+                    "date": "$image_name",
                     "leaning": "$sentiment.political_leaning"
                     },
                 "count": {"$sum": 1}

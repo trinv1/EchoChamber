@@ -19,17 +19,17 @@ phases = [
     {
         "name": "Phase 3 – Gender + username",
         "start": "14-01-2026",
-        "end": "07-03-2026"
+        "end": "28-02-2026"
     },
     {
         "name": "Phase 4 – Post tweet",
-        "start": "08-03-2026",
-        "end": "26-02-2026"
+        "start": "01-03-2026",
+        "end": "30-03-2026"
     },
     {
         "name": "Phase 5 – Unknown",
-        "start": "27-02-2026",
-        "end": "20-03-2026"
+        "start": "01-04-2026",
+        "end": "28-04-2026"
     },
     {
         "name": "Phase 6 – Unknown",
