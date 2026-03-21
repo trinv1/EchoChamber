@@ -27,12 +27,10 @@ IDLE_SLEEP_SEC = 3
 
 client = MongoClient(MONGO_URI)
 db = client["SocialMediaDB"]
-girltwitter = db["girltwitter"]
-boytwitter = db["boytwitter"]
+tweets = db["tweets"]
 captures = db["captures"]
 
-boytwitter.create_index("tweet_hash", unique=True, sparse=True)
-girltwitter.create_index("tweet_hash", unique=True, sparse=True)
+tweets.create_index("tweet_hash", unique=True, sparse=True)
 
 app = FastAPI()
 
@@ -47,18 +45,27 @@ app.add_middleware(
 #Getting all tweets from boy account
 @app.get("/tweets/boy")
 def get_boy_tweets():
-    data = list(boytwitter.find({}, {"_id": 0}))
+    data = list(tweets.find({}, {"_id": 0}))
     return {"count": len(data), "tweets": data}
 
 #Getting all tweets from girl account
 @app.get("/tweets/girl")
 def get_girl_tweets():
-    data = list(girltwitter.find({}, {"_id": 0}))
+    data = list(tweets.find({}, {"_id": 0}))
     return {"count": len(data), "tweets": data}
 
 #Aggregating dates and political leaning
-def counts_by_date_and_leaning(collection):
-    pipeline = [
+def counts_by_date_and_leaning(subject_id=None):
+    match_stage = {}
+    if subject_id:
+        match_stage["subject_id"] = subject_id
+
+    pipeline = []
+
+    if match_stage:
+        pipeline.append({"$match": match_stage})
+    
+    pipeline.extend([
         #Grouping by image name AND sentiment.political_leaning
         {
             "$group": {
@@ -80,23 +87,17 @@ def counts_by_date_and_leaning(collection):
         },
         #Sorting by date 
         {"$sort": {"date": 1}}
-    ]
-    return list(collection.aggregate(pipeline))
+    ])
+    return list(tweets.aggregate(pipeline))
 
 @app.get("/stats/boy/political-leaning")
 def boy_stats():
-    result = counts_by_date_and_leaning(boytwitter)
-    print("Boy stats:")
-    for r in result:
-        print(r)
+    result = counts_by_date_and_leaning("boy")
     return {"series": result}
 
 @app.get("/stats/girl/political-leaning")
 def girl_stats():
-    result = counts_by_date_and_leaning(girltwitter)
-    print("Girl stats:")
-    for r in result:
-        print(r)
+    result = counts_by_date_and_leaning("girl")
     return {"series": result}
 
 os.makedirs("uploads", exist_ok=True)
@@ -256,13 +257,7 @@ def process_one_capture(doc):
     tweets = parsed.get("tweets", [])
 
     #Choosing destination collection
-    subject_id = (doc.get("subject_id") or "").lower()
-    if subject_id == "boy":
-        collection = boytwitter
-    elif subject_id == "girl":
-        collection = girltwitter
-    else:
-        collection = db["parsedtweets"]
+    collection = db["tweets"]
 
     #If tweet doesnt exist dont save
     if not tweets:
@@ -298,6 +293,11 @@ def process_one_capture(doc):
             continue
 
         collection.insert_one({
+            "study_id": doc.get("study_id", ""),
+            "subject_id": doc.get("subject_id", ""),
+            "phase_id": doc.get("phase_id", ""),
+            "session_id": doc.get("session_id", ""),
+            "capture_id": str(doc["_id"]),
             "image_name": datetime.now().strftime("%d-%m-%Y"),
             "username": item.get("username", ""),
             "display_name": item.get("display_name", ""),
@@ -400,8 +400,7 @@ def process_one_sentiment(collection, doc):
 async def processing_worker():
     while True:
         capture_batch = list(captures.find({"status": "queued"}).sort("created_at", 1).limit(BATCH_SIZE))
-        girl_batch = list(girltwitter.find({"sentiment": {"$exists": False}}).limit(BATCH_SIZE))
-        boy_batch = list(boytwitter.find({"sentiment": {"$exists": False}}).limit(BATCH_SIZE))
+        batch = list(tweets.find({"sentiment": {"$exists": False}}).limit(BATCH_SIZE))
 
         #Captures first
         if capture_batch:
@@ -423,24 +422,12 @@ async def processing_worker():
             continue
                 
         #Performs sentiment analysis when captures is empty
-        if girl_batch:
+        if batch:
             processed = 0
             failed = 0
 
-            for doc in girl_batch:
-                    await asyncio.to_thread(process_one_sentiment, girltwitter, doc)
-                    processed += 1
-
-            await asyncio.sleep(BATCH_SLEEP_SEC)
-            continue
-
-        #Performs boy sentiment analysis when girl is empty
-        if boy_batch:
-            processed = 0
-            failed = 0
-
-            for doc in boy_batch:
-                    await asyncio.to_thread(process_one_sentiment, boytwitter, doc)
+            for doc in batch:
+                    await asyncio.to_thread(process_one_sentiment, tweets, doc)
                     processed += 1
 
             await asyncio.sleep(BATCH_SLEEP_SEC)

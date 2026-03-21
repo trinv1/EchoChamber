@@ -33,7 +33,7 @@ async function uploadToRender(dataUrl, tabId, pageUrl, ts, studyId, subjectId, p
 
   const res = await fetch("https://echochamber-q214.onrender.com/upload", {
     method: "POST",
-    body: form
+    body: formData
   });
 
   if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
@@ -66,6 +66,7 @@ async function startCaptureLoop(tabId, intervalMs = 1500, studyId = "", subjectI
       });
 
       const detectedAccount = response?.account ?? "unknown";
+      const ts = new Date().toISOString();
       console.log("Detected account:", detectedAccount, "URL:", tab.url);
 
       const result = await uploadToRender(
