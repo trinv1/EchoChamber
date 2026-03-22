@@ -3,59 +3,60 @@ import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 
-API_URL_B = "https://echochamber-q214.onrender.com/stats/boy/political-leaning"
-API_URL_G = "https://echochamber-q214.onrender.com/stats/girl/political-leaning"
 
-phases = [
-    {
-        "name": "Phase 1 – Baseline (no gender)",
-        "start": "23-11-2025",
-        "end": "06-12-2025"
-    },
-    {
-        "name": "Phase 2 – Gender assigned",
-        "start": "07-12-2025",
-        "end": "13-01-2026"
-    },
-    {
-        "name": "Phase 3 – Gender + username",
-        "start": "14-01-2026",
-        "end": "07-03-2026"
-    },
-    {
-        "name": "Phase 4 – Post tweet",
-        "start": "08-03-2026",
-        "end": "30-03-2026"
-    },
-    {
-        "name": "Phase 5 – Unknown",
-        "start": "01-04-2026",
-        "end": "28-04-2026"
-    },
-    {
-        "name": "Phase 6 – Unknown",
-        "start": "21-03-2026",
-        "end": "11-04-2026"
-    },
-] 
+API_BASE = "https://echochamber-q214.onrender.com"
 
-#Fetching aggregated data for tables
-def fetch_data(url):
-    r = requests.get(url)
+st.title("Algorithmic Bias Analysis")
+
+#Filters
+study_id = st.text_input("Study ID", value="")
+subject_id = st.text_input("Subject ID", value="")
+phase_id = st.text_input("Phase ID", value="")
+
+#Fetching tweets
+def fetch_tweets(study_id="", subject_id="", phase_id="", session_id=""):
+    params = {}
+    if study_id:
+        params["study_id"] = study_id
+    if subject_id:
+        params["subject_id"] = subject_id
+    if phase_id:
+        params["phase_id"] = phase_id
+    if session_id:
+        params["session_id"] = session_id
+
+    r = requests.get(f"{API_BASE}/tweets", params=params)
     r.raise_for_status()
-    df = pd.DataFrame(r.json()["series"])
-    df["date"] = pd.to_datetime(df["date"], format="%d-%m-%Y")
-    return df.sort_values("date")
+    return r.json()
 
-#Making pie chart for each phase
-def make_phase_pie(df, start, end):
-    phase_df = df[(df["date"] >= start) & (df["date"] <= end)].copy()
 
-    if phase_df.empty:
+#Fetching stats
+def fetch_political_leaning(study_id="", subject_id="", phase_id="", session_id=""):
+    params = {}
+    if study_id:
+        params["study_id"] = study_id
+    if subject_id:
+        params["subject_id"] = subject_id
+    if phase_id:
+        params["phase_id"] = phase_id
+    if session_id:
+        params["session_id"] = session_id
+
+    r = requests.get(f"{API_BASE}/stats/political-leaning", params=params)
+    r.raise_for_status()
+    return r.json()
+
+#Making pie chart from collected stats
+def make_pie_from_stats(series):
+    if not series:
+            return None, None
+    
+    df = pd.DataFrame(series)
+    if df.empty:
         return None, None
 
     pie_df = (
-        phase_df.groupby("political_leaning", as_index=False)["count"]
+        df.groupby("political_leaning", as_index=False)["count"]
         .sum()
         .sort_values("count", ascending=False)
     )
@@ -69,37 +70,33 @@ def make_phase_pie(df, start, end):
     )
     ax.axis("equal")
 
-    return fig, phase_df
+    return fig, df
 
-boy_df = fetch_data(API_URL_B)
-girl_df = fetch_data(API_URL_G)
+#Loading analysis from data
+if st.button("Load analysis"):
+    try:
+            tweet_data = fetch_tweets(study_id, subject_id, phase_id, session_id)
+            stats_data = fetch_political_leaning(study_id, subject_id, phase_id, session_id)
 
-st.title("Algorithmic Bias Analysis by Phase")
+            st.subheader("Tweets")
+            st.write("Tweet count:", tweet_data["count"])
 
-#Displaying data for each phase side by side
-for p in phases:
-    start = pd.to_datetime(p["start"], format="%d-%m-%Y")
-    end = pd.to_datetime(p["end"], format="%d-%m-%Y")
+            tweets_df = pd.DataFrame(tweet_data["tweets"])
+            if tweets_df.empty:
+                st.write("No tweets found for these filters.")
+            else:
+                st.dataframe(tweets_df)
 
-    st.header(p["name"])
-    col1, col2 = st.columns(2)
+            st.subheader("Political leaning breakdown")
+            fig, stats_df = make_pie_from_stats(stats_data["series"])
 
-    with col1:
-        st.subheader("Boy")
-        boy_fig, boy_phase_df = make_phase_pie(boy_df, start, end)
+            if fig is None:
+                st.write("No political-leaning data found for these filters.")
+            else:
+                st.pyplot(fig)
+                st.dataframe(stats_df)
 
-        if boy_fig is None:
-            st.write("No data collected yet for this phase.")
-        else:
-            st.pyplot(boy_fig)
-
-    with col2:
-        st.subheader("Girl")
-        girl_fig, girl_phase_df = make_phase_pie(girl_df, start, end)
-
-        if girl_fig is None:
-            st.write("No data collected yet for this phase.")
-        else:
-            st.pyplot(girl_fig)
-
-    st.divider()
+    except requests.HTTPError as e:
+        st.error(f"API error: {e}")
+    except Exception as e:
+        st.error(f"Unexpected error: {e}")
