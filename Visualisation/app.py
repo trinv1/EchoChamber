@@ -12,7 +12,6 @@ OWNER_ID = "trin_test_user"
 #Helper functions to create study, subject and phase
 def create_study(study_id, name, description):
     data = {
-        "owner_id": OWNER_ID,
         "study_id": study_id,
         "name": name,
         "description": description,
@@ -46,10 +45,7 @@ def create_phase(study_id, phase_id, label, start_date, end_date):
 #Fetching studies from api
 def fetch_studies():
     params = {"owner_id": OWNER_ID}
-
-    if study_id:
-        params["study_id"] = study_id
-    r = requests.get(f"{API_BASE}/studies")
+    r = requests.get(f"{API_BASE}/studies", params=params)
     r.raise_for_status()
     return r.json()["studies"]
 

@@ -13,6 +13,8 @@ import asyncio
 import re
 import hashlib
 from rapidfuzz import fuzz
+from passlib.context import CryptContext
+
 
 load_dotenv()
 
@@ -34,6 +36,7 @@ phases = db["phases"]
 captures = db["captures"]
 users = db["users"]
 
+#Creating indexes
 users.create_index("email", unique=True, sparse=True)
 tweets.create_index("tweet_hash", unique=True, sparse=True)
 studies.create_index("study_id", unique=True, sparse=True)
@@ -49,6 +52,45 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+#Defining passlib hashing algo
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+#Posting email and password details to mongo for signup
+@app.post("/signup")
+def signup(
+    email: str = Form(...),
+    password: str = Form(...)
+):
+    hashed_password = pwd_context.hash(password)
+
+    doc = {
+        "email": email,
+        "password_hash": hashed_password,
+        "created_at": datetime.now(timezone.utc),
+    }
+
+    result = users.insert_one(doc)
+    return {"ok": True, "user_id": str(result.inserted_id), "email": email}
+
+#Posting login to mongo to verify user
+@app.post("/login")
+def login(
+    email: str = Form(...),
+    password: str = Form(...)
+):
+    user = users.find_one({"email": email})
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    if not pwd_context.verify(password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    return {
+        "ok": True,
+        "user_id": str(user["_id"]),
+        "email": user["email"]
+    }
 
 #Get tweets of certain owner, study, subject and phase
 @app.get("/tweets")
