@@ -32,6 +32,8 @@ def login_user(email, password):
     r.raise_for_status()
     return r.json()
 
+st.title("EchoChamber")
+
 #If user id isnt in session state, show tabs
 if not st.session_state["user_id"]:
     tab1, tab2 = st.tabs(["Login", "Sign up"])
@@ -52,13 +54,6 @@ if not st.session_state["user_id"]:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Login failed: {e}")
-        
-        st.sidebar.write(f"Logged in as: {st.session_state['user_email']}")
-
-        if st.sidebar.button("Logout"):
-            st.session_state["user_id"] = ""
-            st.session_state["user_email"] = ""
-            st.rerun()
 
     with tab2:
         #Signup form storing user info
@@ -78,6 +73,15 @@ if not st.session_state["user_id"]:
                     st.error(f"Signup failed: {e}")
 
     st.stop()
+
+#Whos logged in
+st.sidebar.write(f"Logged in as: {st.session_state['user_email']}")
+
+#Logout button
+if st.sidebar.button("Logout"):
+    st.session_state["user_id"] = ""
+    st.session_state["user_email"] = ""
+    st.rerun()
 
 tab3, tab4 = st.tabs(["Analysis", "Manage Setup"])
 
