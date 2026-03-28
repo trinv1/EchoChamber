@@ -151,14 +151,18 @@ def fetch_phases(study_id="", subject_id=""):
     return r.json()["phases"]
 
 #Fetching sessions from api
-def fetch_sessions(study_id="", subject_id="", phase_id=""):
+def fetch_sessions(study_id="", subject_id="", phase_id="", status=""):
     params = {"owner_id": st.session_state["user_id"]}
+
     if study_id:
         params["study_id"] = study_id
     if subject_id:
         params["subject_id"] = subject_id
     if phase_id:
         params["phase_id"] = phase_id
+    if status:
+        params["status"] = status
+
     r = requests.get(f"{API_BASE}/sessions", params=params)
     r.raise_for_status()
     return r.json()["sessions"]
@@ -269,15 +273,13 @@ with tab3:
 
     phase_id = st.selectbox("Phase ID", [""] + phase_options)
 
-    #Fetching sessions 
-    try:
-        sessions = fetch_sessions(study_id, phase_subject_for_filter, phase_id)
-    except Exception as e:
-        st.error(f"Could not load sessions: {e}")
-        sessions = []
-
-    session_id = st.selectbox("Session ID", [""] + sessions)
-
+    #Fetching sessions in study
+    session_docs = fetch_sessions(study_id,"", phase_id)
+    session_options = [
+        doc["session_id"] if isinstance(doc, dict) else doc
+        for doc in session_docs
+    ]
+    session_id = st.selectbox("Session ID", [""] + session_options)
 
     #Loading analysis from data
     if st.button("Load analysis"):

@@ -4,6 +4,12 @@ let capturingTabId = null;
 let isUploading = false; // prevents overlapping uploads
 let backoffUntil = 0; // timestamp (ms). If now < this, skip attempts.
 
+let currentOwnerId = "";
+let currentStudyId = "";
+let currentSubjectId = "";
+let currentPhaseId = "";
+let currentSessionId = "";
+
 //Injecting content.js into current tab
 async function ensureContentScript(tabId) {
   await chrome.scripting.executeScript({
@@ -39,6 +45,47 @@ async function uploadToRender(dataUrl, tabId, pageUrl, ts, ownerId, studyId, sub
 
   if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
   return await res.json().catch(() => ({}));
+}
+
+//Upload session start of session to render
+async function startSession(ownerId, studyId, subjectId, phaseId) {
+  const formData = new FormData();
+  formData.append("owner_id", ownerId);
+  formData.append("study_id", studyId);
+  formData.append("subject_id", subjectId);
+  formData.append("phase_id", phaseId);
+  formData.append("session_id", `session_${Date.now()}`);
+  formData.append("label", "Extension capture run");
+
+  const res = await fetch("https://echochamber-q214.onrender.com/sessions/start", {
+    method: "POST",
+    body: formData
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to start session: ${res.status}`);
+  }
+
+  return await res.json();
+}
+
+//Upload end of session to render
+async function stopSession(ownerId, studyId, sessionId) {
+  const formData = new FormData();
+  formData.append("owner_id", ownerId);
+  formData.append("study_id", studyId);
+  formData.append("session_id", sessionId);
+
+  const res = await fetch("https://echochamber-q214.onrender.com/sessions/stop", {
+    method: "POST",
+    body: formData
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to stop session: ${res.status}`);
+  }
+
+  return await res.json();
 }
 
 //Start capture+upload loop
@@ -104,8 +151,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     if (msg.type == "START") {
       currentTabId = msg.tabId;
-      await ensureContentScript(currentTabId);
-      await chrome.tabs.sendMessage(currentTabId, { type: "START_SCROLL" });
+      currentOwnerId = msg.ownerId ?? "";
+      currentStudyId = msg.studyId ?? "";
+      currentSubjectId = msg.subjectId ?? "";
+      currentPhaseId = msg.phaseId ?? "";
+
+      const sessionResult = await startSession(
+        currentOwnerId,
+        currentStudyId,
+        currentSubjectId,
+        currentPhaseId
+    );
+
+    currentSessionId = sessionResult.session_id;
+
+    await ensureContentScript(currentTabId);
+    await chrome.tabs.sendMessage(currentTabId, { type: "START_SCROLL" });
     
     //start capturing + uploading
       await startCaptureLoop(
@@ -124,7 +185,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       if (!tabId) return; 
      await chrome.tabs.sendMessage(tabId, { type: "STOP_SCROLL" });
     stopCaptureLoop();
-    }
+
+    if (currentOwnerId && currentStudyId && currentSessionId) {
+    await stopSession(currentOwnerId, currentStudyId, currentSessionId);
+  }
+
+  currentSessionId = "";
+  }
   })();
   return true;
 });

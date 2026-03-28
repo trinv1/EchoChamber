@@ -35,6 +35,7 @@ subjects = db["subjects"]
 phases = db["phases"]
 captures = db["captures"]
 users = db["users"]
+sessions = db["sessions"]
 
 #Creating indexes
 users.create_index("email", unique=True, sparse=True)
@@ -42,6 +43,7 @@ tweets.create_index("tweet_hash", unique=True, sparse=True)
 studies.create_index("study_id", unique=True, sparse=True)
 subjects.create_index([("study_id", 1), ("subject_id", 1)], unique=True)
 phases.create_index([("study_id", 1), ("phase_id", 1)], unique=True)
+sessions.create_index([("owner_id", 1), ("study_id", 1), ("session_id", 1)], unique=True)
 
 app = FastAPI()
 
@@ -175,6 +177,59 @@ def create_phase(
     result = phases.insert_one(doc)
     return {"ok": True, "id": str(result.inserted_id), "study_id": study_id, "phase_id": phase_id}
 
+#Endpoint to post start of session to mongo
+@app.post("/sessions/start")
+def start_session(
+    owner_id: str = Form(...),
+    study_id: str = Form(...),
+    subject_id: str = Form(""),
+    phase_id: str = Form(""),
+    session_id: str = Form(...),
+    label: str = Form("")
+):
+    doc = {
+        "owner_id": owner_id,
+        "study_id": study_id,
+        "subject_id": subject_id,
+        "phase_id": phase_id,
+        "session_id": session_id,
+        "label": label,
+        "status": "active",
+        "started_at": datetime.now(timezone.utc),
+        "ended_at": None,
+    }
+
+    result = sessions.insert_one(doc)
+
+    return {"ok": True, "id": str(result.inserted_id), "session_id": session_id, "status": "active",}
+
+#Endpoint to post end of session to mongo
+@app.post("/sessions/stop")
+def stop_session(
+    owner_id: str = Form(...),
+    study_id: str = Form(...),
+    session_id: str = Form(...)
+):
+    result = sessions.update_one(
+        {
+            "owner_id": owner_id,
+            "study_id": study_id,
+            "session_id": session_id,
+            "status": "active",
+        },
+        {
+            "$set": {
+                "status": "stopped",
+                "ended_at": datetime.now(timezone.utc),
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Active session not found")
+
+    return {"ok": True, "session_id": session_id, "status": "stopped"}
+
 #Endpoint to get studies of certain owner
 @app.get("/studies")
 def get_studies(owner_id: str = ""):
@@ -217,19 +272,31 @@ def get_phases(study_id: str = "", owner_id: str = "", subject_id: str = ""):
 
 #Endpoint to get sessions 
 @app.get("/sessions")
-def get_sessions(study_id: str = "", subject_id: str = "", phase_id: str = "", owner_id: str = ""):
-    query = {"session_id": {"$ne": ""}}
+def get_sessions(
+    owner_id: str = "",
+    study_id: str = "",
+    subject_id: str = "",
+    phase_id: str = "",
+    status: str = "",
+):
+    query = {}
+
+    if owner_id:
+        query["owner_id"] = owner_id
     if study_id:
         query["study_id"] = study_id
     if subject_id:
         query["subject_id"] = subject_id
     if phase_id:
         query["phase_id"] = phase_id
-    if owner_id:
-        query["owner_id"] = owner_id
-    
-    sessions = tweets.distinct("session_id", query)
-    return {"sessions": sorted(sessions)}
+    if status:
+        query["status"] = status
+
+    data = list(
+        sessions.find(query, {"_id": 0}).sort("started_at", -1)
+    )
+
+    return {"sessions": data}
 
 #Aggregating date a political leaning
 def counts_by_date_and_leaning(owner_id ="", study_id="", subject_id="", phase_id="", session_id=""):

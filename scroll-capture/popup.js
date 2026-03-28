@@ -145,7 +145,6 @@ document.getElementById("start").addEventListener("click", async () => {
     studyId,
     subjectId,
     phaseId,
-    sessionId
   });
 
   statusEl.textContent = "Running";
