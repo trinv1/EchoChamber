@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header
 from datetime import datetime
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -14,6 +14,7 @@ import re
 import hashlib
 from rapidfuzz import fuzz
 from passlib.context import CryptContext
+import secrets
 
 
 load_dotenv()
@@ -87,9 +88,34 @@ def login(
 
     if not pwd_context.verify(password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    token = secrets.token_hex(32)
+
+    users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"auth_token": token}}
+    )
 
     return {
         "ok": True,
+        "user_id": str(user["_id"]),
+        "email": user["email"],
+        "token": token
+    }
+
+#Turn token into current user
+@app.get("/me")
+def get_me(authorization: str = Header("")):
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing token")
+
+    token = authorization.replace("Bearer ", "").strip()
+    user = users.find_one({"auth_token": token})
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    return {
         "user_id": str(user["_id"]),
         "email": user["email"]
     }

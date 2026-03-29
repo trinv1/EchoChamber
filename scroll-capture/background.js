@@ -172,11 +172,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       await startCaptureLoop(
         currentTabId,
         msg.captureEveryMs ?? 1000,
-        msg.ownerId ?? "",
-        msg.studyId ?? "",
-        msg.subjectId ?? "",
-        msg.phaseId ?? "",
-        msg.sessionId ?? ""
+        currentOwnerId,
+        currentStudyId,
+        currentSubjectId,
+        currentPhaseId,
+        currentSessionId
     );
     }
 
