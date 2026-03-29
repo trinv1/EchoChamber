@@ -168,6 +168,7 @@ def create_study(
         "study_id": study_id,
         "name": name,
         "description": description,
+        "is_deleted": False,
         "created_at": datetime.now(timezone.utc),
     }
     result = studies.insert_one(doc)
@@ -189,6 +190,7 @@ def create_subject(
         "study_id": study_id,
         "subject_id": subject_id,
         "label": label,
+        "is_deleted": False,
         "created_at": datetime.now(timezone.utc),
     }
     result = subjects.insert_one(doc)
@@ -214,6 +216,7 @@ def create_phase(
         "label": label,
         "start_date": start_date,
         "end_date": end_date,
+        "is_deleted": False,
         "created_at": datetime.now(timezone.utc),
     }
     result = phases.insert_one(doc)
@@ -284,7 +287,7 @@ def get_studies(authorization: str = Header("")):
     user = get_current_user(authorization)
     owner_id = str(user["_id"])
 
-    data = list(studies.find({"owner_id": owner_id}, {"_id": 0}).sort("study_id", 1))
+    data = list(studies.find({"owner_id": owner_id, "is_deleted": {"$ne": True}}, {"_id": 0}).sort("study_id", 1))
     return {"studies": data}
 
 #Endpoint to get subjects of certain study and owner
@@ -293,7 +296,7 @@ def get_subjects(study_id: str = "", authorization: str = Header("")):
     user = get_current_user(authorization)
     owner_id = str(user["_id"])
 
-    query = {"owner_id": owner_id}
+    query = {"owner_id": owner_id, "is_deleted": {"$ne": True}}
     if study_id:
         query["study_id"] = study_id
 
@@ -308,7 +311,7 @@ def get_phases(study_id: str = "", authorization: str = Header(""), subject_id: 
     user = get_current_user(authorization)
     owner_id = str(user["_id"])
     
-    query = {"owner_id": owner_id}
+    query = {"owner_id": owner_id, "is_deleted": {"$ne": True}}
     if study_id:
         query["study_id"] = study_id
     if subject_id:
@@ -330,7 +333,7 @@ def get_sessions(
 ):
     user = get_current_user(authorization)
     owner_id = str(user["_id"])
-    query = {"owner_id": owner_id}
+    query = {"owner_id": owner_id, "is_deleted": {"$ne": True}}
 
     if study_id:
         query["study_id"] = study_id
@@ -346,6 +349,191 @@ def get_sessions(
     )
 
     return {"sessions": data}
+
+#Route to update studies
+@app.put("/studies/{study_id}")
+def update_study(
+    study_id: str,
+    name: str = Form(""),
+    description: str = Form(""),
+    authorization: str = Header("")
+):
+    user = get_current_user(authorization)
+    owner_id = str(user["_id"])
+
+    update_fields = {
+        "name": name,
+        "description": description,
+        "updated_at": datetime.now(timezone.utc),
+    }
+
+    result = studies.update_one(
+        {
+            "owner_id": owner_id,
+            "study_id": study_id,
+            "is_deleted": {"$ne": True}
+        },
+        {"$set": update_fields}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    return {"ok": True, "study_id": study_id}
+
+#Route to update subjects
+@app.put("/subjects/{subject_id}")
+def update_subject(
+    subject_id: str,
+    study_id: str = Form(...),
+    label: str = Form(""),
+    authorization: str = Header("")
+):
+    user = get_current_user(authorization)
+    owner_id = str(user["_id"])
+
+    update_fields = {
+        "label": label,
+        "updated_at": datetime.now(timezone.utc),
+    }
+
+    result = subjects.update_one(
+        {
+            "owner_id": owner_id,
+            "study_id": study_id,
+            "subject_id": subject_id,
+            "is_deleted": {"$ne": True}
+        },
+        {"$set": update_fields}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    return {"ok": True, "subject_id": subject_id}
+
+#Route to update phases
+@app.put("/phases/{phase_id}")
+def update_phase(
+    phase_id: str,
+    study_id: str = Form(...),
+    label: str = Form(""),
+    start_date: str = Form(""),
+    end_date: str = Form(""),
+    authorization: str = Header("")
+):
+    user = get_current_user(authorization)
+    owner_id = str(user["_id"])
+
+    update_fields = {
+        "label": label,
+        "start_date": start_date,
+        "end_date": end_date,
+        "updated_at": datetime.now(timezone.utc),
+    }
+
+    result = phases.update_one(
+        {
+            "owner_id": owner_id,
+            "study_id": study_id,
+            "phase_id": phase_id,
+            "is_deleted": {"$ne": True}
+        },
+        {"$set": update_fields}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Phase not found")
+
+    return {"ok": True, "phase_id": phase_id}
+
+#Route to soft delete study
+@app.delete("/studies/{study_id}")
+def delete_study(
+    study_id: str,
+    authorization: str = Header("")
+):
+    user = get_current_user(authorization)
+    owner_id = str(user["_id"])
+
+    result = studies.update_one(
+        {
+            "owner_id": owner_id,
+            "study_id": study_id,
+            "is_deleted": {"$ne": True}
+        },
+        {
+            "$set": {
+                "is_deleted": True,
+                "deleted_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    return {"ok": True, "study_id": study_id, "deleted": True}
+
+#Route to soft delete subject
+@app.delete("/subjects/{subject_id}")
+def delete_subject(
+    subject_id: str,
+    study_id: str,
+    authorization: str = Header("")
+):
+    user = get_current_user(authorization)
+    owner_id = str(user["_id"])
+
+    result = subjects.update_one(
+        {
+            "owner_id": owner_id,
+            "study_id": study_id,
+            "subject_id": subject_id,
+            "is_deleted": {"$ne": True}
+        },
+        {
+            "$set": {
+                "is_deleted": True,
+                "deleted_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    return {"ok": True, "subject_id": subject_id, "deleted": True}
+
+#Route to soft delete phases
+@app.delete("/phases/{phase_id}")
+def delete_phase(
+    phase_id: str,
+    study_id: str,
+    authorization: str = Header("")
+):
+    user = get_current_user(authorization)
+    owner_id = str(user["_id"])
+
+    result = phases.update_one(
+        {
+            "owner_id": owner_id,
+            "study_id": study_id,
+            "phase_id": phase_id,
+            "is_deleted": {"$ne": True}
+        },
+        {
+            "$set": {
+                "is_deleted": True,
+                "deleted_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Phase not found")
+
+    return {"ok": True, "phase_id": phase_id, "deleted": True}
 
 #Aggregating date a political leaning
 def counts_by_date_and_leaning(owner_id ="", study_id="", subject_id="", phase_id="", session_id=""):
