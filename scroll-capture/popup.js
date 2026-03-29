@@ -168,22 +168,6 @@ document.getElementById("logout").addEventListener("click", async () => {
   statusEl.textContent = "Logged out";
 });
 
-//Listening for when the authentication token changes
-document.getElementById("authToken").addEventListener("change", async () => {
-  try {
-    const token = document.getElementById("authToken").value.trim();
-    await chrome.storage.local.set({ authToken: token });
-
-    const me = await fetchMe(token);
-    await populateStudies(token);
-
-    document.getElementById("subjectId").innerHTML = `<option value="">Select subject</option>`;
-    document.getElementById("phaseId").innerHTML = `<option value="">Select phase</option>`;
-  } catch (e) {
-    console.error("Failed to load user from token:", e);
-  }
-});
-
 //Study id changing based on auth token and propogates changes to subjects and phases
 document.getElementById("studyId").addEventListener("change", async (e) => {
   try {

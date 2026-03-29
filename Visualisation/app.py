@@ -209,10 +209,6 @@ def fetch_political_leaning(study_id="", subject_id="", phase_id="", session_id=
 with tab3:
     st.title("Algorithmic Bias Analysis")
 
-    st.write("Extension Token:")
-    st.code(st.session_state["auth_token"])
-    copy_button(st.session_state["auth_token"], key="copy_auth_token")
-
     #Making pie chart from collected stats
     def make_pie_from_stats(series):
         if not series:
@@ -279,6 +275,8 @@ with tab3:
     except Exception as e:
         st.error(f"Could not load sessions: {e}")
         session_options = []
+
+    session_id = st.selectbox("Session ID", [""] + session_options)
 
     #Loading analysis from data
     if st.button("Load analysis"):
