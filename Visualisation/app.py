@@ -96,7 +96,7 @@ if st.sidebar.button("Logout"):
     st.session_state["auth_token"] = ""
     st.rerun()
 
-tab3, tab4 = st.tabs(["Analysis", "Manage Setup"])
+tab3, tab4, tab5 = st.tabs(["Analysis", "Create Study", "Edit/Delete Study"])
 
 #Helper functions to create study, subject and phase
 def create_study(study_id, name, description):
@@ -206,6 +206,78 @@ def fetch_political_leaning(study_id="", subject_id="", phase_id="", session_id=
     r.raise_for_status()
     return r.json()
 
+#Helpers to update and delete study
+def update_study(study_id, name, description):
+    data = {
+        "name": name,
+        "description": description,
+    }
+    r = requests.put(
+        f"{API_BASE}/studies/{study_id}",
+        data=data,
+        headers=auth_headers()
+    )
+    r.raise_for_status()
+    return r.json()
+
+def delete_study(study_id):
+    r = requests.delete(
+        f"{API_BASE}/studies/{study_id}",
+        headers=auth_headers()
+    )
+    r.raise_for_status()
+    return r.json()
+
+#Helpers to update and delete subject
+def update_subject(study_id, subject_id, label):
+    data = {
+        "study_id": study_id,
+        "label": label,
+    }
+    r = requests.put(
+        f"{API_BASE}/subjects/{subject_id}",
+        data=data,
+        headers=auth_headers()
+    )
+    r.raise_for_status()
+    return r.json()
+
+def delete_subject(study_id, subject_id):
+    params = {"study_id": study_id}
+    r = requests.delete(
+        f"{API_BASE}/subjects/{subject_id}",
+        params=params,
+        headers=auth_headers()
+    )
+    r.raise_for_status()
+    return r.json()
+
+#Helpers to update and delete phase
+def update_phase(study_id, phase_id, label, start_date, end_date):
+    data = {
+        "study_id": study_id,
+        "label": label,
+        "start_date": str(start_date),
+        "end_date": str(end_date),
+    }
+    r = requests.put(
+        f"{API_BASE}/phases/{phase_id}",
+        data=data,
+        headers=auth_headers()
+    )
+    r.raise_for_status()
+    return r.json()
+
+def delete_phase(study_id, phase_id):
+    params = {"study_id": study_id}
+    r = requests.delete(
+        f"{API_BASE}/phases/{phase_id}",
+        params=params,
+        headers=auth_headers()
+    )
+    r.raise_for_status()
+    return r.json()
+
 with tab3:
     st.title("Algorithmic Bias Analysis")
 
@@ -311,6 +383,7 @@ with tab3:
                         st.error(f"Unexpected error: {e}")
 
 with tab4: 
+    
     st.header("Create Study")
 
     #Form to create study
@@ -373,3 +446,211 @@ with tab4:
                 st.rerun()
             except Exception as e:
                 st.error(f"Failed to create phase: {e}")
+    
+with tab5:
+    #DELETE / EDIT STUDY
+    st.header("Edit / Delete Study")
+
+    #fetching study
+    try:
+        study_docs = fetch_studies()
+        study_options = [doc["study_id"] for doc in study_docs]
+    except Exception as e:
+        st.error(f"Could not load studies for editing: {e}")
+        study_docs = []
+        study_options = []
+
+    #selecting study
+    selected_study_to_edit = st.selectbox(
+        "Select Study to Edit",
+        [""] + study_options,
+        key="edit_study_select"
+    )
+    #looking for matching study id
+    if selected_study_to_edit:
+        selected_study_doc = next(
+            (doc for doc in study_docs if doc["study_id"] == selected_study_to_edit),
+            None
+        )
+
+        if selected_study_doc:
+            with st.form("edit_study_form"):
+                edit_study_name = st.text_input(
+                    "Study Name",
+                    value=selected_study_doc.get("name", "")
+                )
+                edit_study_description = st.text_area(
+                    "Description",
+                    value=selected_study_doc.get("description", "")
+                )
+
+                col1, col2 = st.columns(2)
+                save_study = col1.form_submit_button("Save Study Changes")
+                delete_study_btn = col2.form_submit_button("Delete Study")
+
+                #updating study
+                if save_study:
+                    try:
+                        update_study(
+                            selected_study_to_edit,
+                            edit_study_name,
+                            edit_study_description
+                        )
+                        st.success("Study updated")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to update study: {e}")
+
+                #deleting study
+                if delete_study_btn:
+                    try:
+                        delete_study(selected_study_to_edit)
+                        st.success("Study deleted")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to delete study: {e}")
+
+    #DELETE / EDIT SUBJECT
+
+    st.header("Edit / Delete Subject")
+
+    selected_study_for_subject_edit = st.selectbox(
+        "Study for Subject Edit",
+        [""] + study_options,
+        key="subject_edit_study"
+    )
+
+    #fetching subject
+    if selected_study_for_subject_edit:
+        try:
+            subject_docs_for_edit = fetch_subjects(selected_study_for_subject_edit)
+            subject_edit_options = [doc["subject_id"] for doc in subject_docs_for_edit]
+        except Exception as e:
+            st.error(f"Could not load subjects for editing: {e}")
+            subject_docs_for_edit = []
+            subject_edit_options = []
+
+        selected_subject_to_edit = st.selectbox(
+            "Select Subject to Edit",
+            [""] + subject_edit_options,
+            key="edit_subject_select"
+        )
+
+        #looking for matching subject id
+        if selected_subject_to_edit:
+            selected_subject_doc = next(
+                (doc for doc in subject_docs_for_edit if doc["subject_id"] == selected_subject_to_edit),
+                None
+            )
+
+            if selected_subject_doc:
+                with st.form("edit_subject_form"):
+                    edit_subject_label = st.text_input(
+                        "Subject Label",
+                        value=selected_subject_doc.get("label", "")
+                    )
+
+                    col1, col2 = st.columns(2)
+                    save_subject = col1.form_submit_button("Save Subject Changes")
+                    delete_subject_btn = col2.form_submit_button("Delete Subject")
+
+                    if save_subject:
+                        try: #updating subject
+                            update_subject(
+                                selected_study_for_subject_edit,
+                                selected_subject_to_edit,
+                                edit_subject_label
+                            )
+                            st.success("Subject updated")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Failed to update subject: {e}")
+
+                    #deleting subject
+                    if delete_subject_btn:
+                        try:
+                            delete_subject(
+                                selected_study_for_subject_edit,
+                                selected_subject_to_edit
+                            )
+                            st.success("Subject deleted")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Failed to delete subject: {e}")
+            
+    #DELETE / EDIT PHASE
+    st.header("Edit / Delete Phase")
+
+    selected_study_for_phase_edit = st.selectbox(
+        "Study for Phase Edit",
+        [""] + study_options,
+        key="phase_edit_study"
+    )
+
+    #fetching phases
+    if selected_study_for_phase_edit:
+        try:
+            phase_docs_for_edit = fetch_phases(selected_study_for_phase_edit)
+            phase_edit_options = [doc["phase_id"] for doc in phase_docs_for_edit]
+        except Exception as e:
+            st.error(f"Could not load phases for editing: {e}")
+            phase_docs_for_edit = []
+            phase_edit_options = []
+
+        selected_phase_to_edit = st.selectbox(
+            "Select Phase to Edit",
+            [""] + phase_edit_options,
+            key="edit_phase_select"
+        )
+
+        #looking for matching phase id
+        if selected_phase_to_edit:
+            selected_phase_doc = next(
+                (doc for doc in phase_docs_for_edit if doc["phase_id"] == selected_phase_to_edit),
+                None
+            )
+
+            #editing specific parts of phase
+            if selected_phase_doc:
+                with st.form("edit_phase_form"):
+                    edit_phase_label = st.text_input(
+                        "Phase Label",
+                        value=selected_phase_doc.get("label", "")
+                    )
+
+                    current_start = selected_phase_doc.get("start_date", "")
+                    current_end = selected_phase_doc.get("end_date", "")
+
+                    edit_phase_start = st.date_input("Start Date", value = current_start)
+                    edit_phase_end = st.date_input("End Date", value = current_end)
+
+                    col1, col2 = st.columns(2)
+                    save_phase = col1.form_submit_button("Save Phase Changes")
+                    delete_phase_btn = col2.form_submit_button("Delete Phase")
+
+                    #updating phase
+                    if save_phase:
+                        try:
+                            update_phase(
+                                selected_study_for_phase_edit,
+                                selected_phase_to_edit,
+                                edit_phase_label,
+                                edit_phase_start,
+                                edit_phase_end
+                            )
+                            st.success("Phase updated")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Failed to update phase: {e}")
+
+                    #deleting phase
+                    if delete_phase_btn:
+                        try:
+                            delete_phase(
+                                selected_study_for_phase_edit,
+                                selected_phase_to_edit
+                            )
+                            st.success("Phase deleted")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Failed to delete phase: {e}")
