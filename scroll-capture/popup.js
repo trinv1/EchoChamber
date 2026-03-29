@@ -35,45 +35,52 @@ async function fetchMe(token) {
 }
 
 //Calling studies belonging to owner
-async function fetchStudies(ownerId) {
-  const url = new URL(`${API_BASE}/studies`);
-  if (ownerId) url.searchParams.set("owner_id", ownerId);
-
-  const res = await fetch(url);
+async function fetchStudies(token) {
+  const res = await fetch(`${API_BASE}/studies`, {
+  headers: {
+        Authorization: `Bearer ${token}`
+    }
+  });
   if (!res.ok) throw new Error("Failed to load studies");
   return (await res.json()).studies;
 }
 
 //Calling subjects of study belonging to owner
-async function fetchSubjects(ownerId, studyId) {
+async function fetchSubjects(token, studyId) {
   const url = new URL(`${API_BASE}/subjects`);
-  if (ownerId) url.searchParams.set("owner_id", ownerId);
   if (studyId) url.searchParams.set("study_id", studyId);
 
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
   if (!res.ok) throw new Error("Failed to load subjects");
   return (await res.json()).subjects;
 }
 
 //Calling phases of study belonging to owner
-async function fetchPhases(ownerId, studyId) {
+async function fetchPhases(token, studyId) {
   const url = new URL(`${API_BASE}/phases`);
-  if (ownerId) url.searchParams.set("owner_id", ownerId);
   if (studyId) url.searchParams.set("study_id", studyId);
 
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
   if (!res.ok) throw new Error("Failed to load phases");
   return (await res.json()).phases;
 }
 
 //Populating study dropdown on popup load in accordance of owner
-async function populateStudies(ownerId) {
+async function populateStudies(token) {
   const studySelect = document.getElementById("studyId");
   studySelect.innerHTML = `<option value="">Select study</option>`;
 
-  if (!ownerId) return;
+  if (!token) return;
 
-  const studies = await fetchStudies(ownerId);
+  const studies = await fetchStudies(token);
   for (const study of studies) {
     const option = document.createElement("option");
     if (typeof study === "string") {
@@ -88,13 +95,13 @@ async function populateStudies(ownerId) {
 }
 
 //Populating subjects dropdown
-async function populateSubjects(ownerId, studyId) {
+async function populateSubjects(token, studyId) {
   const subjectSelect = document.getElementById("subjectId");
   subjectSelect.innerHTML = `<option value="">Select subject</option>`;
 
-  if (!ownerId || !studyId) return;
+  if (!token || !studyId) return;
 
-  const subjects = await fetchSubjects(ownerId, studyId);
+  const subjects = await fetchSubjects(token, studyId);
   for (const subject of subjects) {
     const option = document.createElement("option");
     option.value = subject.subject_id;
@@ -104,13 +111,13 @@ async function populateSubjects(ownerId, studyId) {
 }
 
 //Populating phases dropdown
-async function populatePhases(ownerId, studyId) {
+async function populatePhases(token, studyId) {
   const phaseSelect = document.getElementById("phaseId");
   phaseSelect.innerHTML = `<option value="">Select phase</option>`;
 
-  if (!ownerId || !studyId) return;
+  if (!token || !studyId) return;
 
-  const phases = await fetchPhases(ownerId, studyId);
+  const phases = await fetchPhases(token, studyId);
   for (const phase of phases) {
     const option = document.createElement("option");
     option.value = phase.phase_id;
@@ -134,7 +141,7 @@ document.getElementById("login").addEventListener("click", async () => {
     document.getElementById("authToken").value = result.token;
 
     const me = await fetchMe(result.token);
-    await populateStudies(me.user_id);
+    await populateStudies(result.token);
 
     document.getElementById("subjectId").innerHTML = `<option value="">Select subject</option>`;
     document.getElementById("phaseId").innerHTML = `<option value="">Select phase</option>`;
@@ -168,7 +175,7 @@ document.getElementById("authToken").addEventListener("change", async () => {
     await chrome.storage.local.set({ authToken: token });
 
     const me = await fetchMe(token);
-    await populateStudies(me.user_id);
+    await populateStudies(token);
 
     document.getElementById("subjectId").innerHTML = `<option value="">Select subject</option>`;
     document.getElementById("phaseId").innerHTML = `<option value="">Select phase</option>`;
@@ -181,12 +188,10 @@ document.getElementById("authToken").addEventListener("change", async () => {
 document.getElementById("studyId").addEventListener("change", async (e) => {
   try {
     const token = document.getElementById("authToken").value.trim();
-    const me = await fetchMe(token);
-    const ownerId = me.user_id;
     const studyId = e.target.value;
 
-    await populateSubjects(ownerId, studyId);
-    await populatePhases(ownerId, studyId);
+    await populateSubjects(token, studyId);
+    await populatePhases(token, studyId);
   } catch (e) {
     console.error("Failed to load subjects/phases:", e);
   }
@@ -199,7 +204,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (saved.authToken) {
       document.getElementById("authToken").value = saved.authToken;
       const me = await fetchMe(saved.authToken);
-      await populateStudies(me.user_id);
+      await populateStudies(saved.authToken);
       statusEl.textContent = `Logged in as ${me.email}`;
     }
   } catch (e) {

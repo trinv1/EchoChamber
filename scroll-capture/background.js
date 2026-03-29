@@ -23,8 +23,19 @@ async function dataUrlToBlob(dataUrl) {
   return await (await fetch(dataUrl)).blob();
 }
 
+//Getting stored auth token
+async function getStoredAuthToken() {
+  const saved = await chrome.storage.local.get(["authToken"]);
+  return saved.authToken || "";
+}
+
 //Upload one capture to Render
-async function uploadToRender(dataUrl, tabId, pageUrl, ts, ownerId, studyId, subjectId, phaseId, sessionId) {
+async function uploadToRender(dataUrl, tabId, pageUrl, ts, studyId, subjectId, phaseId, sessionId) {
+  const authToken = await getStoredAuthToken();
+  if (!authToken) {
+    throw new Error("Missing auth token");
+  }
+  
   const blob = await (await fetch(dataUrl)).blob();
 
   const formData = new FormData();
@@ -32,7 +43,6 @@ async function uploadToRender(dataUrl, tabId, pageUrl, ts, ownerId, studyId, sub
   formData.append("tabId", String(tabId ?? ""));
   formData.append("pageUrl", pageUrl ?? "");
   formData.append("ts", ts ?? "");
-  formData.append("ownerId", ownerId ?? "");
   formData.append("studyId", studyId ?? "");
   formData.append("subjectId", subjectId ?? "");
   formData.append("phaseId", phaseId ?? "");
@@ -40,6 +50,9 @@ async function uploadToRender(dataUrl, tabId, pageUrl, ts, ownerId, studyId, sub
 
   const res = await fetch("https://echochamber-q214.onrender.com/upload", {
     method: "POST",
+    headers: {
+      Authorization: `Bearer ${authToken}`
+    },
     body: formData
   });
 
@@ -48,9 +61,13 @@ async function uploadToRender(dataUrl, tabId, pageUrl, ts, ownerId, studyId, sub
 }
 
 //Upload session start of session to render
-async function startSession(ownerId, studyId, subjectId, phaseId) {
+async function startSession(studyId, subjectId, phaseId) {
+  const authToken = await getStoredAuthToken();
+  if (!authToken) {
+    throw new Error("Missing auth token");
+  }
+  
   const formData = new FormData();
-  formData.append("owner_id", ownerId);
   formData.append("study_id", studyId);
   formData.append("subject_id", subjectId);
   formData.append("phase_id", phaseId);
@@ -59,6 +76,9 @@ async function startSession(ownerId, studyId, subjectId, phaseId) {
 
   const res = await fetch("https://echochamber-q214.onrender.com/sessions/start", {
     method: "POST",
+    headers: {
+      Authorization: `Bearer ${authToken}`
+    },
     body: formData
   });
 
@@ -71,6 +91,11 @@ async function startSession(ownerId, studyId, subjectId, phaseId) {
 
 //Upload end of session to render
 async function stopSession(ownerId, studyId, sessionId) {
+  const authToken = await getStoredAuthToken();
+  if (!authToken) {
+    throw new Error("Missing auth token");
+  }
+
   const formData = new FormData();
   formData.append("owner_id", ownerId);
   formData.append("study_id", studyId);
@@ -151,7 +176,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     if (msg.type == "START") {
       currentTabId = msg.tabId;
-      currentOwnerId = msg.ownerId ?? "";
       currentStudyId = msg.studyId ?? "";
       currentSubjectId = msg.subjectId ?? "";
       currentPhaseId = msg.phaseId ?? "";
@@ -186,8 +210,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
      await chrome.tabs.sendMessage(tabId, { type: "STOP_SCROLL" });
     stopCaptureLoop();
 
-    if (currentOwnerId && currentStudyId && currentSessionId) {
-    await stopSession(currentOwnerId, currentStudyId, currentSessionId);
+    if (currentStudyId && currentSessionId) {
+    await stopSession(currentStudyId, currentSessionId);
   }
 
   currentSessionId = "";
