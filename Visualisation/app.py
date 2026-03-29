@@ -16,6 +16,12 @@ if "user_email" not in st.session_state:
 if "auth_token" not in st.session_state:
     st.session_state["auth_token"] = ""
 
+#Helper returning auth token in session state
+def auth_headers():
+    return {
+        "Authorization": f"Bearer {st.session_state['auth_token']}"
+    }
+
 #Helper function to signup user
 def signup_user(email, password):
     data = {
@@ -95,70 +101,65 @@ tab3, tab4 = st.tabs(["Analysis", "Manage Setup"])
 #Helper functions to create study, subject and phase
 def create_study(study_id, name, description):
     data = {
-        "owner_id": st.session_state["user_id"],
         "study_id": study_id,
         "name": name,
         "description": description,
     }
-    r = requests.post(f"{API_BASE}/studies", data=data)
+    r = requests.post(f"{API_BASE}/studies", data=data, headers=auth_headers())
     r.raise_for_status()
     return r.json()
 
 def create_subject(study_id, subject_id, label):
     data = {
-        "owner_id": st.session_state["user_id"],
         "study_id": study_id,
         "subject_id": subject_id,
         "label": label,
     }
-    r = requests.post(f"{API_BASE}/subjects", data=data)
+    r = requests.post(f"{API_BASE}/subjects", data=data, headers=auth_headers())
     r.raise_for_status()
     return r.json()
 
 def create_phase(study_id, phase_id, label, start_date, end_date):
     data = {
-        "owner_id": st.session_state["user_id"],
         "study_id": study_id,
         "phase_id": phase_id,
         "label": label,
         "start_date": str(start_date),
         "end_date": str(end_date),
     }
-    r = requests.post(f"{API_BASE}/phases", data=data)
+    r = requests.post(f"{API_BASE}/phases", data=data, headers=auth_headers())
     r.raise_for_status()
     return r.json()
 
 #Fetching studies from api
 def fetch_studies():
-    params = {"owner_id": st.session_state["user_id"]}
-    r = requests.get(f"{API_BASE}/studies", params=params)
+    r = requests.get(f"{API_BASE}/studies", headers=auth_headers())
     r.raise_for_status()
     return r.json()["studies"]
 
 #Fetching subjects from api
 def fetch_subjects(study_id=""):
     params = {}
-    params = {"owner_id": st.session_state["user_id"]}
     if study_id:
         params["study_id"] = study_id
-    r = requests.get(f"{API_BASE}/subjects", params=params)
+    r = requests.get(f"{API_BASE}/subjects", params=params, headers=auth_headers())
     r.raise_for_status()
     return r.json()["subjects"]
 
 #Fetching from phases from api
 def fetch_phases(study_id="", subject_id=""):
-    params = {"owner_id": st.session_state["user_id"]}
+    params = {}
     if study_id:
         params["study_id"] = study_id
     if subject_id:
         params["subject_id"] = subject_id
-    r = requests.get(f"{API_BASE}/phases", params=params)
+    r = requests.get(f"{API_BASE}/phases", params=params, headers=auth_headers())
     r.raise_for_status()
     return r.json()["phases"]
 
 #Fetching sessions from api
 def fetch_sessions(study_id="", subject_id="", phase_id="", status=""):
-    params = {"owner_id": st.session_state["user_id"]}
+    params = {}
 
     if study_id:
         params["study_id"] = study_id
@@ -169,13 +170,13 @@ def fetch_sessions(study_id="", subject_id="", phase_id="", status=""):
     if status:
         params["status"] = status
 
-    r = requests.get(f"{API_BASE}/sessions", params=params)
+    r = requests.get(f"{API_BASE}/sessions", params=params, headers=auth_headers())
     r.raise_for_status()
     return r.json()["sessions"]
 
 #Fetching tweets
 def fetch_tweets(study_id="", subject_id="", phase_id="", session_id=""):
-    params = {"owner_id": st.session_state["user_id"]}
+    params = {}
     if study_id:
         params["study_id"] = study_id
     if subject_id:
@@ -185,13 +186,13 @@ def fetch_tweets(study_id="", subject_id="", phase_id="", session_id=""):
     if session_id:
         params["session_id"] = session_id
 
-    r = requests.get(f"{API_BASE}/tweets", params=params)
+    r = requests.get(f"{API_BASE}/tweets", params=params, headers=auth_headers())
     r.raise_for_status()
     return r.json()
 
 #Fetching stats
 def fetch_political_leaning(study_id="", subject_id="", phase_id="", session_id=""):
-    params = {"owner_id": st.session_state["user_id"]}
+    params = {}
     if study_id:
         params["study_id"] = study_id
     if subject_id:
@@ -201,7 +202,7 @@ def fetch_political_leaning(study_id="", subject_id="", phase_id="", session_id=
     if session_id:
         params["session_id"] = session_id
 
-    r = requests.get(f"{API_BASE}/stats/political-leaning", params=params)
+    r = requests.get(f"{API_BASE}/stats/political-leaning", params=params, headers=auth_headers())
     r.raise_for_status()
     return r.json()
 
@@ -258,12 +259,6 @@ with tab3:
     #Choosing multiple subjects
     subject_ids = st.multiselect("Subject IDs", subject_options)
 
-    #Showing phases that exist for this subject
-    if subject_ids:
-        phase_subject_for_filter = subject_ids[0]
-    else:
-        phase_subject_for_filter = ""
-
     #Fetching phase in study
     try:
         phase_docs = fetch_phases(study_id)
@@ -275,12 +270,15 @@ with tab3:
     phase_id = st.selectbox("Phase ID", [""] + phase_options)
 
     #Fetching sessions in study
-    session_docs = fetch_sessions(study_id,"", phase_id)
-    session_options = [
-        doc["session_id"] if isinstance(doc, dict) else doc
-        for doc in session_docs
+    try:
+        session_docs = fetch_sessions(study_id, "", phase_id)
+        session_options = [
+            doc["session_id"] if isinstance(doc, dict) else doc
+            for doc in session_docs
     ]
-    session_id = st.selectbox("Session ID", [""] + session_options)
+    except Exception as e:
+        st.error(f"Could not load sessions: {e}")
+        session_options = []
 
     #Loading analysis from data
     if st.button("Load analysis"):
