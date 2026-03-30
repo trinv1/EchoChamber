@@ -296,13 +296,22 @@ with tab3:
             .sort_values("count", ascending=False)
         )
 
-        fig, ax = plt.subplots()
-        ax.pie(
+        fig, ax = plt.subplots(figsize=(6, 4))
+        
+        wedges, texts, autotexts = ax.pie(
             pie_df["count"],
-            labels=pie_df["political_leaning"],
             autopct="%1.1f%%",
             startangle=90
         )
+
+        ax.legend(
+            wedges,
+            pie_df["political_leaning"],
+            title="Political leaning",
+            loc="center left",
+            bbox_to_anchor=(1, 0.5)
+        )
+
         ax.axis("equal")
         return fig, df
 
@@ -399,7 +408,7 @@ with tab4:
                 st.success(f"Study created: {new_study_id}")
                 st.rerun()
             except Exception as e:
-                st.error(f"Failed to create study: {e}")
+                st.error(f"Study ID already exists")
 
     st.header("Create Subject")
 
@@ -419,7 +428,7 @@ with tab4:
                 st.success(f"Subject created: {new_subject_id}")
                 st.rerun()
             except Exception as e:
-                st.error(f"Failed to create subject: {e}")
+                st.error(f"Subject ID already exists")
 
 
     st.header("Create Phase")
@@ -445,7 +454,7 @@ with tab4:
                 st.success(f"Phase created: {new_phase_id}")
                 st.rerun()
             except Exception as e:
-                st.error(f"Failed to create phase: {e}")
+                st.error(f"Phase ID already exists")
     
 with tab5:
     #DELETE / EDIT STUDY

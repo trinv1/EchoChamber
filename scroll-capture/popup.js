@@ -212,9 +212,6 @@ document.getElementById("start").addEventListener("click", async () => {
   const authToken = document.getElementById("authToken").value.trim();
   await chrome.storage.local.set({ authToken });
 
-  const me = await fetchMe(authToken);
-  const ownerId = me.user_id;
-
   const studyId = document.getElementById("studyId").value.trim();
   const subjectId = document.getElementById("subjectId").value.trim();
   const phaseId = document.getElementById("phaseId").value.trim();
@@ -229,7 +226,7 @@ document.getElementById("start").addEventListener("click", async () => {
     type: "START",
     tabId: tab.id,
     captureEveryMs: 2000,
-    ownerId,
+    authToken,
     studyId,
     subjectId,
     phaseId,

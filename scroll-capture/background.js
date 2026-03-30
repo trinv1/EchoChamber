@@ -90,20 +90,22 @@ async function startSession(studyId, subjectId, phaseId) {
 }
 
 //Upload end of session to render
-async function stopSession(ownerId, studyId, sessionId) {
+async function stopSession(studyId, sessionId) {
   const authToken = await getStoredAuthToken();
   if (!authToken) {
     throw new Error("Missing auth token");
   }
 
   const formData = new FormData();
-  formData.append("owner_id", ownerId);
   formData.append("study_id", studyId);
   formData.append("session_id", sessionId);
 
   const res = await fetch("https://echochamber-q214.onrender.com/sessions/stop", {
     method: "POST",
-    body: formData
+    body: formData,
+    headers: {
+      Authorization: `Bearer ${authToken}`
+    },
   });
 
   if (!res.ok) {
@@ -114,7 +116,7 @@ async function stopSession(ownerId, studyId, sessionId) {
 }
 
 //Start capture+upload loop
-async function startCaptureLoop(tabId, intervalMs = 1500, ownerId = "", studyId = "", subjectId = "", phaseId = "", sessionId = "") {
+async function startCaptureLoop(tabId, intervalMs = 1500, studyId = "", subjectId = "", phaseId = "", sessionId = "") {
   stopCaptureLoop();
   capturingTabId = tabId;
 
@@ -147,7 +149,6 @@ async function startCaptureLoop(tabId, intervalMs = 1500, ownerId = "", studyId 
         capturingTabId,
         tab.url,
         ts,
-        ownerId,
         studyId,
         subjectId || detectedAccount,
         phaseId,
@@ -181,7 +182,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       currentPhaseId = msg.phaseId ?? "";
 
       const sessionResult = await startSession(
-        currentOwnerId,
         currentStudyId,
         currentSubjectId,
         currentPhaseId
@@ -196,7 +196,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       await startCaptureLoop(
         currentTabId,
         msg.captureEveryMs ?? 1000,
-        currentOwnerId,
         currentStudyId,
         currentSubjectId,
         currentPhaseId,
