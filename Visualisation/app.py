@@ -190,7 +190,7 @@ def fetch_tweets(study_id="", subject_id="", phase_id="", session_id=""):
     r.raise_for_status()
     return r.json()
 
-#Fetching stats
+#Fetching political leaning stats
 def fetch_political_leaning(study_id="", subject_id="", phase_id="", session_id=""):
     params = {}
     if study_id:
@@ -203,6 +203,57 @@ def fetch_political_leaning(study_id="", subject_id="", phase_id="", session_id=
         params["session_id"] = session_id
 
     r = requests.get(f"{API_BASE}/stats/political-leaning", params=params, headers=auth_headers())
+    r.raise_for_status()
+    return r.json()
+
+#Fetch top words stats from API for selected filters
+def fetch_top_words(study_id="", subject_id="", phase_id="", session_id="", limit=20):
+    params = {"limit": limit}
+   
+    #Add optional filters if selected
+    if study_id:
+        params["study_id"] = study_id
+    if subject_id:
+        params["subject_id"] = subject_id
+    if phase_id:
+        params["phase_id"] = phase_id
+    if session_id:
+        params["session_id"] = session_id
+
+    #Call backend endpoint and return JSON response
+    r = requests.get(f"{API_BASE}/stats/top-words", params=params, headers=auth_headers())
+    r.raise_for_status()
+    return r.json()
+
+#Fetch top topic stats from API for selected filters
+def fetch_top_topics(study_id="", subject_id="", phase_id="", session_id="", limit=10):
+    params = {"limit": limit}
+    if study_id:
+        params["study_id"] = study_id
+    if subject_id:
+        params["subject_id"] = subject_id
+    if phase_id:
+        params["phase_id"] = phase_id
+    if session_id:
+        params["session_id"] = session_id
+
+    r = requests.get(f"{API_BASE}/stats/top-topics", params=params, headers=auth_headers())
+    r.raise_for_status()
+    return r.json()
+
+#Fetch topic by leaning stats from API for selected filters
+def fetch_topic_by_leaning(study_id="", subject_id="", phase_id="", session_id="", limit=20):
+    params = {"limit": limit}
+    if study_id:
+        params["study_id"] = study_id
+    if subject_id:
+        params["subject_id"] = subject_id
+    if phase_id:
+        params["phase_id"] = phase_id
+    if session_id:
+        params["session_id"] = session_id
+
+    r = requests.get(f"{API_BASE}/stats/topic-by-leaning", params=params, headers=auth_headers())
     r.raise_for_status()
     return r.json()
 
@@ -286,6 +337,7 @@ with tab3:
         if not series:
                 return None, None
         
+        #Convert list of items into dataframe
         df = pd.DataFrame(series)
         if df.empty:
             return None, None
@@ -314,6 +366,89 @@ with tab3:
 
         ax.axis("equal")
         return fig, df
+    
+    #Create reusable bar chart from API items
+    def make_bar_chart(items, label_key, value_key, title, horizontal=True):
+        #Returning nothing if no data exists
+        if not items:
+            return None
+
+        #Convert list of items into dataframe
+        df = pd.DataFrame(items)
+        if df.empty or label_key not in df.columns or value_key not in df.columns:
+            return None
+
+        #Sort values so chart displays in sensible order
+        df = df.sort_values(value_key, ascending=True if horizontal else False)
+
+        #Create chart figure
+        fig, ax = plt.subplots(figsize=(7, 4))
+
+        #Draw horizontal bar chart
+        if horizontal:
+            ax.barh(df[label_key], df[value_key])
+            ax.set_xlabel(value_key.replace("_", " ").title())
+            ax.set_ylabel(label_key.replace("_", " ").title())
+        else:
+            ax.bar(df[label_key], df[value_key])
+            ax.set_ylabel(value_key.replace("_", " ").title())
+            ax.set_xlabel(label_key.replace("_", " ").title())
+            plt.xticks(rotation=45, ha="right")
+
+        #Set chart title and tidy layout
+        ax.set_title(title)
+        plt.tight_layout()
+        return fig
+
+    #Create stacked bar chart showing how each topic is split by political leaning
+    def make_topic_by_leaning_chart(series):
+        #Return nothing if no data exists
+        if not series:
+            return None
+
+        rows = []
+
+        #Flatten nested topic/leaning structure into simple rows
+        for item in series:
+            topic = item.get("topic", "")
+            for leaning in item.get("leanings", []):
+                rows.append({
+                    "topic": topic,
+                    "political_leaning": leaning.get("political_leaning", "unknown"),
+                    "count": leaning.get("count", 0)
+                })
+
+        if not rows:
+            return None
+
+        #Convert rows into dataframe
+        df = pd.DataFrame(rows)
+        if df.empty:
+            return None
+
+        #Pivot data so each leaning becomes a stacked segment
+        pivot_df = df.pivot_table(
+            index="topic",
+            columns="political_leaning",
+            values="count",
+            aggfunc="sum",
+            fill_value=0
+        )
+
+        #Sort topics by total volume
+        pivot_df["total"] = pivot_df.sum(axis=1)
+        pivot_df = pivot_df.sort_values("total", ascending=True).drop(columns=["total"])
+
+        #Plot stacked horizontal bar chart
+        fig, ax = plt.subplots(figsize=(8, 5))
+        pivot_df.plot(kind="barh", stacked=True, ax=ax)
+
+        ax.set_title("Topic by Political Leaning")
+        ax.set_xlabel("Count")
+        ax.set_ylabel("Topic")
+        ax.legend(title="Political leaning", bbox_to_anchor=(1.02, 1), loc="upper left")
+        plt.tight_layout()
+        return fig
 
     #Dropdowns to fetch studies
     try:
@@ -372,19 +507,76 @@ with tab3:
 
                 with col:
                     st.subheader(subject_id)
-                    
-                    #Displaying pie chart of stats
+
                     try:
+                        #Fetch all analysis datasets for selected subject
                         tweet_data = fetch_tweets(study_id, subject_id, phase_id, session_id)
                         stats_data = fetch_political_leaning(study_id, subject_id, phase_id, session_id)
+                        top_words_data = fetch_top_words(study_id, subject_id, phase_id, session_id, limit=10)
+                        top_topics_data = fetch_top_topics(study_id, subject_id, phase_id, session_id, limit=10)
+                        topic_by_leaning_data = fetch_topic_by_leaning(study_id, subject_id, phase_id, session_id, limit=10)
 
+                        #Show total number of tweets collected
                         st.write("Tweet count:", tweet_data["count"])
 
+                        #Display pie chart for political leaning distribution
                         fig, stats_df = make_pie_from_stats(stats_data["series"])
                         if fig is None:
                             st.write("No political-leaning data found.")
                         else:
                             st.pyplot(fig)
+
+                        #Display top words as bar chart
+                        st.markdown("### Top words")
+                        words = top_words_data.get("words", [])
+                        if words:
+                            words_df = pd.DataFrame(words)
+
+                            #Rename Mongo _id field if backend has not yet projected 'word'
+                            if "_id" in words_df.columns and "word" not in words_df.columns:
+                                words_df = words_df.rename(columns={"_id": "word"})
+
+                            fig_words = make_bar_chart(
+                                words_df.to_dict(orient="records"),
+                                "word",
+                                "count",
+                                "Top Words"
+                            )
+                            if fig_words:
+                                st.pyplot(fig_words)
+                        else:
+                            st.write("No top words found.")
+
+                        #Display top topics as bar chart
+                        st.markdown("### Top topics")
+                        topics = top_topics_data.get("topics", [])
+                        if topics:
+                            topics_df = pd.DataFrame(topics)
+
+                            #Rename Mongo _id field if backend has not yet projected 'topic'
+                            if "_id" in topics_df.columns and "topic" not in topics_df.columns:
+                                topics_df = topics_df.rename(columns={"_id": "topic"})
+
+                            fig_topics = make_bar_chart(
+                                topics_df.to_dict(orient="records"),
+                                "topic",
+                                "count",
+                                "Top Topics"
+                            )
+                            if fig_topics:
+                                st.pyplot(fig_topics)
+                        else:
+                            st.write("No top topics found.")
+
+                        #Display stacked chart showing topic distribution by political leaning
+                        st.markdown("### Topic by leaning")
+                        series = topic_by_leaning_data.get("series", [])
+                        if series:
+                            fig_topic_leaning = make_topic_by_leaning_chart(series)
+                            if fig_topic_leaning:
+                                st.pyplot(fig_topic_leaning)
+                        else:
+                            st.write("No topic-by-leaning data found.")
 
                     except requests.HTTPError as e:
                         st.error(f"API error: {e}")
