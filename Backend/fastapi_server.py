@@ -571,8 +571,13 @@ def top_words(owner_id="", study_id="", subject_id="", phase_id="", session_id="
             "$match": {
                 "words": {
                     "$nin": [
-                        "the","and","to","of","a","in","is","for","on","that",
-                        "with","as","it","this","at","by","from","be","are"
+                        "", "there", "once", "one", "the", "and", "to", "of", "a", "in", "is", "for", "on",
+                        "that", "with", "as", "it", "this", "at", "by", "from", "be", "are",
+                        "was", "were", "will", "would", "should", "could",
+                        "i", "you", "he", "she", "we", "they", "them", "his", "her",
+                        "my", "your", "our", "their", "some", "can", "just", "every",
+                        "just", "have", "has", "had", "do", "does", "did",
+                        "but", "if", "or", "so", "because", "about", "well"
                     ]
                 }
             }
