@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header, BackgroundTasks
 from datetime import datetime
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -174,12 +174,14 @@ def change_password(
 
 #Endpoint to request password reset
 @app.post("/forgot-password")
-async def forgot_password(email: str = Form(...)):
+async def forgot_password(
+    background_tasks: BackgroundTasks,
+    email: str = Form(...)
+):
     user = users.find_one({"email": email})
 
-    #Always returning same message so nobody can test if email exists
     if user:
-        await send_reset_email(email)
+        background_tasks.add_task(send_reset_email, email)
 
     return {
         "ok": True,

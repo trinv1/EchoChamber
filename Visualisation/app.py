@@ -141,18 +141,14 @@ if not st.session_state["user_id"]:
 
         with st.form("forgot_password_form"):
             forgot_email = st.text_input("Enter your email", key="forgot_email")
-            forgot_submit = st.form_submit_button("Generate Reset Token")
+            forgot_submit = st.form_submit_button("Send Reset Email")
 
             if forgot_submit:
                 try:
-                    result = forgot_password(forgot_email)
-                    st.success("If that email exists, a reset token has been generated.")
-
-                    #Temporary for development only
-                    if "reset_token" in result:
-                        st.info(f"Reset token: {result['reset_token']}")
+                    forgot_password(forgot_email)
+                    st.success("If that email exists, a reset link has been sent.")
                 except Exception:
-                    st.error("Could not generate reset token")
+                    st.error("Could not send reset email")
 
         with st.form("reset_password_form"):
             reset_email = st.text_input("Email", key="reset_email")
