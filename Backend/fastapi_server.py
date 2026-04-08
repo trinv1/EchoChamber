@@ -535,6 +535,143 @@ def delete_phase(
 
     return {"ok": True, "phase_id": phase_id, "deleted": True}
 
+#Most common words found in a session
+def top_words(owner_id="", study_id="", subject_id="", phase_id="", session_id="", limit=20):
+    match_stage = {}
+
+    if owner_id:
+        match_stage["owner_id"] = owner_id
+    if study_id:
+        match_stage["study_id"] = study_id
+    if subject_id:
+        match_stage["subject_id"] = subject_id
+    if phase_id:
+        match_stage["phase_id"] = phase_id
+    if session_id:
+        match_stage["session_id"] = session_id
+
+    pipeline = []
+
+    if match_stage:
+        pipeline.append({"$match": match_stage})
+
+    pipeline.extend([
+        {
+            "$project": {
+                "words": {
+                    "$split": [
+                        {"$toLower": "$tweet"},
+                        " "
+                    ]
+                }
+            }
+        },
+        {"$unwind": "$words"},
+        {
+            "$match": {
+                "words": {
+                    "$nin": [
+                        "the","and","to","of","a","in","is","for","on","that",
+                        "with","as","it","this","at","by","from","be","are"
+                    ]
+                }
+            }
+        },
+        {
+            "$group": {
+                "_id": "$words",
+                "count": {"$sum": 1}
+            }
+        },
+        {"$sort": {"count": -1}},
+        {"$limit": limit}
+    ])
+
+    return list(tweets.aggregate(pipeline))
+
+#Endpoint getting top words of that session
+@app.get("/stats/top-words")
+def get_top_words(
+    study_id: str = "",
+    subject_id: str = "",
+    phase_id: str = "",
+    session_id: str = "",
+    limit: int = 20,
+    authorization: str = Header("")
+):
+    user = get_current_user(authorization)
+    owner_id = str(user["_id"])
+
+    result = top_words(
+        owner_id=owner_id,
+        study_id=study_id,
+        subject_id=subject_id,
+        phase_id=phase_id,
+        session_id=session_id,
+        limit=limit
+    )
+
+    return {"words": result}
+
+#Top topics of session
+def top_topics(owner_id="", study_id="", subject_id="", phase_id="", session_id="", limit=10):
+    match_stage = {}
+
+    if owner_id:
+        match_stage["owner_id"] = owner_id
+    if study_id:
+        match_stage["study_id"] = study_id
+    if subject_id:
+        match_stage["subject_id"] = subject_id
+    if phase_id:
+        match_stage["phase_id"] = phase_id
+    if session_id:
+        match_stage["session_id"] = session_id
+
+    pipeline = []
+
+    if match_stage:
+        pipeline.append({"$match": match_stage})
+
+    pipeline.extend([
+        {
+            "$group": {
+                "_id": "$sentiment.topic",
+                "count": {"$sum": 1}
+            }
+        },
+        {"$sort": {"count": -1}},
+        {"$limit": limit}
+    ])
+
+    return list(tweets.aggregate(pipeline))
+
+#Getting top topics of session
+@app.get("/stats/top-topics")
+def get_top_topics(
+    study_id: str = "",
+    subject_id: str = "",
+    phase_id: str = "",
+    session_id: str = "",
+    limit: int = 10,
+    authorization: str = Header("")
+):
+    user = get_current_user(authorization)
+    owner_id = str(user["_id"])
+
+    limit = min(max(limit, 1), 100)
+
+    result = top_topics(
+        owner_id=owner_id,
+        study_id=study_id,
+        subject_id=subject_id,
+        phase_id=phase_id,
+        session_id=session_id,
+        limit=limit
+    )
+
+    return {"topics": result}
+
 #Aggregating date a political leaning
 def counts_by_date_and_leaning(owner_id ="", study_id="", subject_id="", phase_id="", session_id=""):
     match_stage = {}
@@ -579,6 +716,95 @@ def counts_by_date_and_leaning(owner_id ="", study_id="", subject_id="", phase_i
         {"$sort": {"date": 1}}
     ])
     return list(tweets.aggregate(pipeline))
+
+#Finding leaning of certain topics for accounts
+def topic_by_leaning(owner_id="", study_id="", subject_id="", phase_id="", session_id=""):
+    match_stage = {}
+
+    if owner_id:
+        match_stage["owner_id"] = owner_id
+    if study_id:
+        match_stage["study_id"] = study_id
+    if subject_id:
+        match_stage["subject_id"] = subject_id
+    if phase_id:
+        match_stage["phase_id"] = phase_id
+    if session_id:
+        match_stage["session_id"] = session_id
+
+    pipeline = []
+
+    if match_stage:
+        pipeline.append({"$match": match_stage})
+
+    pipeline.extend([
+        {
+            "$match": {
+                "sentiment": {"$exists": True},
+                "sentiment.topic": {"$exists": True, "$ne": ""},
+                "sentiment.political_leaning": {"$exists": True, "$ne": ""}
+            }
+        },
+        {
+            "$group": {
+                "_id": {
+                    "topic": "$sentiment.topic",
+                    "leaning": "$sentiment.political_leaning"
+                },
+                "count": {"$sum": 1}
+            }
+        },
+        {
+            "$group": {
+                "_id": "$_id.topic",
+                "leanings": {
+                    "$push": {
+                        "political_leaning": "$_id.leaning",
+                        "count": "$count"
+                    }
+                },
+                "total": {"$sum": "$count"}
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "topic": "$_id",
+                "total": 1,
+                "leanings": 1
+            }
+        },
+        {"$sort": {"total": -1}}
+        {"$limit": limit}
+    ])
+
+    return list(tweets.aggregate(pipeline))
+
+#Getting topic by leaning stats
+@app.get("/stats/topic-by-leaning")
+def get_topic_by_leaning(
+    study_id: str = "",
+    subject_id: str = "",
+    phase_id: str = "",
+    session_id: str = "",
+    limit: int = 20,
+    authorization: str = Header("")
+):
+    user = get_current_user(authorization)
+    owner_id = str(user["_id"])
+
+    limit = min(max(limit, 1), 200)
+
+    result = topic_by_leaning(
+        owner_id=owner_id,
+        study_id=study_id,
+        subject_id=subject_id,
+        phase_id=phase_id,
+        session_id=session_id,
+        limit=limit
+    )
+
+    return {"series": result}
 
 #Political leaning stats endpoint
 @app.get("/stats/political-leaning")
@@ -849,7 +1075,7 @@ def process_one_capture(doc):
             #Normalisation
             "tweet_normalized": tweet_normalized,
             "tweet_hash": tweet_hash,
-            
+
             "likes": item.get("likes", ""),
             "retweets": item.get("retweets", ""),
     })
