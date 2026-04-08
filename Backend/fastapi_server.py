@@ -15,9 +15,34 @@ import hashlib
 from rapidfuzz import fuzz
 from passlib.context import CryptContext
 import secrets
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 
 load_dotenv()
+
+MAIL_USERNAME = os.getenv("MAIL_USERNAME")
+MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
+MAIL_FROM = os.getenv("MAIL_FROM")
+MAIL_PORT = int(os.getenv("MAIL_PORT", "587"))
+MAIL_SERVER = os.getenv("MAIL_SERVER")
+MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME", "EchoChamber")
+SECRET_KEY = os.getenv("SECRET_KEY")
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+
+conf = ConnectionConfig(
+    MAIL_USERNAME=MAIL_USERNAME,
+    MAIL_PASSWORD=MAIL_PASSWORD,
+    MAIL_FROM=MAIL_FROM,
+    MAIL_PORT=MAIL_PORT,
+    MAIL_SERVER=MAIL_SERVER,
+    MAIL_STARTTLS=True,
+    MAIL_SSL_TLS=False,
+    USE_CREDENTIALS=True,
+    VALIDATE_CERTS=True
+)
+
+serializer = URLSafeTimedSerializer(SECRET_KEY)
 
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 PROCESSOR_ENABLED = os.getenv("PROCESSOR_ENABLED", "0") == "1"
@@ -143,31 +168,16 @@ def change_password(
 
 #Endpoint to request password reset
 @app.post("/forgot-password")
-def forgot_password(email: str = Form(...)):
+async def forgot_password(email: str = Form(...)):
     user = users.find_one({"email": email})
 
-    #Always return same response so emails cannot be enumerated
-    if not user:
-        return {"ok": True, "message": "If that email exists, a reset token has been generated."}
+    #Always returning same message so nobody can test if email exists
+    if user:
+        await send_reset_email(email)
 
-    reset_token = secrets.token_urlsafe(32)
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
-
-    users.update_one(
-        {"_id": user["_id"]},
-        {
-            "$set": {
-                "reset_token": reset_token,
-                "reset_token_expires_at": expires_at
-            }
-        }
-    )
-
-    #just returning token directly right now
     return {
         "ok": True,
-        "message": "Reset token generated",
-        "reset_token": reset_token
+        "message": "If that email exists, a reset link has been sent."
     }
 
 #Endpoint to reset password using reset token
@@ -178,50 +188,71 @@ def reset_password(
     new_password: str = Form(...),
     confirm_password: str = Form(...)
 ):
-    user = users.find_one({"email": email})
-
-    if not user:
-        raise HTTPException(status_code=400, detail="Invalid email or reset token")
-
-    stored_token = user.get("reset_token")
-    expires_at = user.get("reset_token_expires_at")
-
-    if not stored_token or stored_token != reset_token:
-        raise HTTPException(status_code=400, detail="Invalid email or reset token")
-
-    if not expires_at:
-        raise HTTPException(status_code=400, detail="Reset token has expired")
-
-    if isinstance(expires_at, str):
-        expires_at = datetime.fromisoformat(expires_at)
-
-    if expires_at < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Reset token has expired")
-
+    #Check passwords match
     if new_password != confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
 
+    #Basic validation
     if len(new_password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
 
+    user = users.find_one({"email": email})
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid reset link")
+
+    #Check token is valid and not expired
+    try:
+        token_email = serializer.loads(
+            reset_token,
+            salt="password-reset",
+            max_age=3600
+        )
+    except SignatureExpired:
+        raise HTTPException(status_code=400, detail="Reset link has expired")
+    except BadSignature:
+        raise HTTPException(status_code=400, detail="Invalid reset link")
+
+    if token_email != email:
+        raise HTTPException(status_code=400, detail="Invalid reset link")
+
+    #Update password
     new_password_hash = pwd_context.hash(new_password)
-    new_auth_token = secrets.token_hex(32)
 
     users.update_one(
         {"_id": user["_id"]},
-        {
-            "$set": {
-                "password_hash": new_password_hash,
-                "auth_token": new_auth_token
-            },
-            "$unset": {
-                "reset_token": "",
-                "reset_token_expires_at": ""
-            }
-        }
+        {"$set": {"password_hash": new_password_hash}}
     )
 
-    return {"ok": True, "message": "Password reset successfully"}
+    return {
+        "ok": True,
+        "message": "Password reset successfully"
+    }
+
+#Helper function sending reset password email
+async def send_reset_email(user_email: str):
+    reset_token = serializer.dumps(user_email, salt="password-reset")
+    reset_link = f"{FRONTEND_URL}/?reset_token={reset_token}&email={user_email}"
+
+    message = MessageSchema(
+        subject="Reset your FeedScope password",
+        recipients=[user_email],
+        body=f"""
+Hello,
+
+You requested a password reset for your FeedScope account.
+
+Click the link below to reset your password:
+{reset_link}
+
+This link expires in 1 hour.
+
+If you did not request this, you can ignore this email.
+""",
+        subtype="plain"
+    )
+
+    fm = FastMail(conf)
+    await fm.send_message(message)
 
 #Get current user from token
 def get_current_user(authorization: str = Header("")):
