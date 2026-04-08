@@ -6,6 +6,16 @@ from st_copy import copy_button
 
 API_BASE = "https://echochamber-q214.onrender.com"
 
+#Fixed colours for political leaning across all charts
+LEANING_COLOURS = {
+    "left": "#1f77b4",       
+    "right": "#d62728",       
+    "centre": "#9467bd",      
+    "centrist": "#8c564b",  
+    "apolitical": "#7f7f7f",  
+    "unclear": "#ff7f0e",  
+}
+
 #Storing user_id and email in session state
 if "user_id" not in st.session_state:
     st.session_state["user_id"] = ""
@@ -345,17 +355,37 @@ with tab3:
         pie_df = (
             df.groupby("political_leaning", as_index=False)["count"]
             .sum()
-            .sort_values("count", ascending=False)
         )
+
+        #Making colours stay consistent for leanings
+        leaning_order = ["left", "right", "centre", "centrist", "apolitical", "unclear"]
+        pie_df["political_leaning"] = pd.Categorical(
+            pie_df["political_leaning"],
+            categories=leaning_order,
+            ordered=True
+        )
+        pie_df = pie_df.sort_values("political_leaning")
+
+        #Map each leaning to a fixed colour
+        colours = [LEANING_COLOURS.get(label, "#cccccc") for label in pie_df["political_leaning"]]
 
         fig, ax = plt.subplots(figsize=(6, 4))
         
         wedges, texts, autotexts = ax.pie(
             pie_df["count"],
-            autopct="%1.1f%%",
-            startangle=90
+            labels=None, 
+            colors=colours,
+            #autopct="%1.1f%%",
+            autopct=lambda pct: f"{pct:.1f}%" if pct >= 4 else "",   #Hide tiny labels
+            startangle=90,
+            pctdistance=1.12
         )
 
+        #Style percentage text
+        for autotext in autotexts:
+            autotext.set_fontsize(12)
+
+        #Legend instead of wedge labels
         ax.legend(
             wedges,
             pie_df["political_leaning"],
@@ -425,23 +455,32 @@ with tab3:
         df = pd.DataFrame(rows)
         if df.empty:
             return None
-
+        
+        
         #Pivot data so each leaning becomes a stacked segment
         pivot_df = df.pivot_table(
             index="topic",
             columns="political_leaning",
             values="count",
             aggfunc="sum",
-            fill_value=0
+            fill_value=0,
         )
 
         #Sort topics by total volume
         pivot_df["total"] = pivot_df.sum(axis=1)
         pivot_df = pivot_df.sort_values("total", ascending=True).drop(columns=["total"])
 
-        #Plot stacked horizontal bar chart
+        #Plot stacked horizontal bar chart by colour
         fig, ax = plt.subplots(figsize=(8, 5))
-        pivot_df.plot(kind="barh", stacked=True, ax=ax)
+        leaning_columns = list(pivot_df.columns)
+        bar_colors = [LEANING_COLOURS.get(col, "#cccccc") for col in leaning_columns]
+
+        pivot_df.plot(
+            kind="barh",
+            stacked=True,
+            ax=ax,
+            color=bar_colors
+        )
 
         ax.set_title("Topic by Political Leaning")
         ax.set_xlabel("Count")
@@ -464,9 +503,15 @@ with tab3:
     try:
         subject_docs = fetch_subjects(study_id)
         subject_options = [doc["subject_id"] for doc in subject_docs]
+        #Map subject id to display label
+        subject_label_map = {
+            doc["subject_id"]: f"{doc['subject_id']} - {doc.get('label', '')}"
+            for doc in subject_docs
+        }
     except Exception as e:
         st.error(f"Could not load subjects: {e}")
         subject_options = []
+        format_func=lambda sid: subject_label_map.get(sid, sid)
 
     #Choosing multiple subjects
     subject_ids = st.multiselect("Subject IDs", subject_options)
@@ -506,7 +551,7 @@ with tab3:
                 col = cols[i % len(cols)]
 
                 with col:
-                    st.subheader(subject_id)
+                    st.subheader(subject_label_map.get(subject_id, subject_id))
 
                     try:
                         #Fetch all analysis datasets for selected subject

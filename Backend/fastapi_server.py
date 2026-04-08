@@ -571,13 +571,13 @@ def top_words(owner_id="", study_id="", subject_id="", phase_id="", session_id="
             "$match": {
                 "words": {
                     "$nin": [
-                        "", "there", "once", "one", "the", "and", "to", "of", "a", "in", "is", "for", "on",
-                        "that", "with", "as", "it", "this", "at", "by", "from", "be", "are",
-                        "was", "were", "will", "would", "should", "could",
-                        "i", "you", "he", "she", "we", "they", "them", "his", "her",
-                        "my", "your", "our", "their", "some", "can", "just", "every",
-                        "just", "have", "has", "had", "do", "does", "did",
-                        "but", "if", "or", "so", "because", "about", "well"
+                        "", "there", "once", "one", "the", "and", "to", "of", "a", "in", "is", "for", "on", "movie",
+                        "that", "with", "as", "it", "this", "at", "by", "from", "be", "are", "more", "out", "all"
+                        "was", "were", "will", "would", "should", "could", "an", "like", "not", "new", "am", "been",
+                        "i", "you", "he", "she", "we", "they", "them", "his", "her", "people", "who", "real", "into",
+                        "my", "your", "our", "their", "some", "can", "just", "every", "now", "she's", "time", "get",
+                        "just", "have", "has", "had", "do", "does", "did", "when", "no", "after", "me", "what", "first",
+                        "but", "if", "or", "so", "because", "about", "well", "years", "never" "life", "he's", "see"
                     ]
                 }
             }
