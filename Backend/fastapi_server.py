@@ -3,7 +3,7 @@ from datetime import datetime
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import os
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from bson import Binary
@@ -15,38 +15,17 @@ import hashlib
 from rapidfuzz import fuzz
 from passlib.context import CryptContext
 import secrets
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-
+import requests
 
 load_dotenv()
 
-MAIL_USERNAME = os.getenv("MAIL_USERNAME")
-MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
-MAIL_FROM = os.getenv("MAIL_FROM")
-MAIL_PORT = int(os.getenv("MAIL_PORT", "587"))
-MAIL_SERVER = os.getenv("MAIL_SERVER")
-MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME", "EchoChamber")
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
+SENDER_EMAIL = os.getenv("SENDER_EMAIL")
+SENDER_NAME = os.getenv("SENDER_NAME", "FeedScope")
+
 SECRET_KEY = os.getenv("SECRET_KEY")
 FRONTEND_URL = os.getenv("FRONTEND_URL")
-
-#TESTS FOR DEPLOYING
-print("MAIL_USERNAME:", MAIL_USERNAME)
-print("MAIL_PASSWORD exists:", MAIL_PASSWORD is not None)
-print("MAIL_FROM:", MAIL_FROM)
-print("MAIL_SERVER:", MAIL_SERVER)
-
-conf = ConnectionConfig(
-    MAIL_USERNAME=MAIL_USERNAME,
-    MAIL_PASSWORD=MAIL_PASSWORD,
-    MAIL_FROM=MAIL_FROM,
-    MAIL_PORT=MAIL_PORT,
-    MAIL_SERVER=MAIL_SERVER,
-    MAIL_STARTTLS=True,
-    MAIL_SSL_TLS=False,
-    USE_CREDENTIALS=True,
-    VALIDATE_CERTS=True
-)
 
 serializer = URLSafeTimedSerializer(SECRET_KEY)
 
@@ -174,14 +153,12 @@ def change_password(
 
 #Endpoint to request password reset
 @app.post("/forgot-password")
-async def forgot_password(
-    background_tasks: BackgroundTasks,
-    email: str = Form(...)
-):
+def forgot_password(email: str = Form(...)):
     user = users.find_one({"email": email})
 
+    #Always returnin same message so nobody can test if email exists
     if user:
-        background_tasks.add_task(send_reset_email, email)
+        send_reset_email(email)
 
     return {
         "ok": True,
@@ -236,31 +213,49 @@ def reset_password(
         "message": "Password reset successfully"
     }
 
-#Helper function sending reset password email
-async def send_reset_email(user_email: str):
+#Helper function sending reset password email using Brevo API
+def send_reset_email(user_email: str):
     reset_token = serializer.dumps(user_email, salt="password-reset")
     reset_link = f"{FRONTEND_URL}/?reset_token={reset_token}&email={user_email}"
 
-    message = MessageSchema(
-        subject="Reset your FeedScope password",
-        recipients=[user_email],
-        body=f"""
-Hello,
+    url = "https://api.brevo.com/v3/smtp/email"
 
-You requested a password reset for your FeedScope account.
+    payload = {
+        "sender": {
+            "name": SENDER_NAME,
+            "email": SENDER_EMAIL
+        },
+        "to": [
+            {"email": user_email}
+        ],
+        "subject": "Reset your FeedScope password",
+        "htmlContent": f"""
+        <html>
+            <body>
+                <p>Hello,</p>
+                <p>You requested a password reset for your FeedScope account.</p>
+                <p>Click the link below to reset your password:</p>
+                <p><a href="{reset_link}">{reset_link}</a></p>
+                <p>This link expires in 1 hour.</p>
+                <p>If you did not request this, you can ignore this email.</p>
+            </body>
+        </html>
+        """
+    }
 
-Click the link below to reset your password:
-{reset_link}
+    headers = {
+        "accept": "application/json",
+        "api-key": BREVO_API_KEY,
+        "content-type": "application/json"
+    }
 
-This link expires in 1 hour.
+    response = requests.post(url, json=payload, headers=headers, timeout=20)
 
-If you did not request this, you can ignore this email.
-""",
-        subtype="plain"
-    )
-
-    fm = FastMail(conf)
-    await fm.send_message(message)
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Email sending failed: {response.text}"
+        )
 
 #Get current user from token
 def get_current_user(authorization: str = Header("")):
