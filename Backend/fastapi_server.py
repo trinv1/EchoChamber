@@ -687,65 +687,98 @@ def process_one_capture(doc):
 
     #Calling API and creating chat completion request
     response = openai_client.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[
-        {
-            "role": "system",
-            "content": (
-                "You are a Twitter/X screenshot parser. "
-                "Your job is to extract ALL clearly visible main-feed tweets from the screenshot. "
-                "Return ONLY valid JSON. No markdown, no backticks, no explanations.\n"
-                "Rules:\n"
-                "- Return ONLY valid JSON.\n"
-                "- Ignore ads, promoted posts, sponsored content, and anything labelled 'Promoted'.\n"
-                "- Ignore sidebars, trends, menus, buttons, search bars, notifications, and any non-feed UI text.\n"
-                "- Ignore partial tweets if too little is visible to identify the tweet reliably.\n"
-                "- If multiple feed tweets are visible, include all of them in top-to-bottom order.\n"
-                "- Do not invent missing values. Use empty strings if a field is not visible.\n"
-                "Return JSON in exactly this format:\n"
-                "{\n"
-                "  \"tweets\": [\n"
-                "    {\n"
-                "      \"username\": \"\",\n"
-                "      \"display_name\": \"\",\n"
-                "      \"tweet\": \"\",\n"
-                "      \"likes\": \"\",\n"
-                "      \"retweets\": \"\",\n"
-                "    }\n"
-                "  ]\n"
-                "}\n"
-            )
-        },
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": (
-                        "Extract all visible main-feed tweets from this screenshot. "
-                        "Include only real tweets visible in the central feed. "
-                        "Do not include promoted posts, ads, sponsored content, or anything marked 'Promoted'. "
-                        "Do not include sidebar content or interface text. "
-                        "For each visible tweet, extract:\n"
-                        "- username (@handle)\n"
-                        "- display_name\n"
-                        "- tweet text\n"
-                        "- likes count\n"
-                        "- retweets count\n"
-                        "Return all tweets in top-to-bottom order. "
-                        "Return ONLY valid JSON in the required format."
-                    )
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:{content_type};base64,{image_b64}"
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a Twitter/X screenshot parser. "
+                    "Extract ALL clearly visible main-feed posts from the central feed only. "
+                    "Return ONLY valid JSON. No markdown, no backticks, no explanations.\n\n"
+
+                    "Important context rules:\n"
+                    "- Detect whether each visible post is an original tweet, repost/retweet, quote tweet, reply, or unclear.\n"
+                    "- If the screenshot shows that a user reposted someone else's content, capture BOTH the reposting user's context and the original visible content.\n"
+                    "- If the screenshot shows a quote tweet, capture BOTH the quoting text and the quoted/original tweet text.\n"
+                    "- If the screenshot shows a reply and the parent tweet is visible, capture the reply text and the parent tweet text.\n"
+                    "- If referenced content is not visible, leave it as an empty string.\n"
+                    "- Do not invent hidden or cropped text.\n"
+                    "- Ignore ads, promoted posts, sidebars, trends, menus, and interface text.\n"
+                    "- Ignore partial posts if too little is visible to identify them reliably.\n"
+                    "- Preserve top-to-bottom order.\n\n"
+
+                    "For each visible post return:\n"
+                    "- username\n"
+                    "- display_name\n"
+                    "- post_type\n"
+                    "- actor_commentary\n"
+                    "- referenced_username\n"
+                    "- referenced_display_name\n"
+                    "- referenced_post_text\n"
+                    "- relationship_to_referenced_post\n"
+                    "- full_visible_meaning\n"
+                    "- likes\n"
+                    "- retweets\n\n"
+
+                    "Definitions:\n"
+                    "- original: a standalone post by the visible account\n"
+                    "- retweet: repost of another post without substantial added text\n"
+                    "- quote_tweet: repost with added commentary\n"
+                    "- reply: response to another post\n"
+                    "- thread_post: post that is part of a visible thread\n"
+                    "- unclear: cannot determine reliably\n\n"
+
+                    "relationship_to_referenced_post meanings:\n"
+                    "- endorses: visible user appears to agree with or support referenced content\n"
+                    "- criticises: visible user appears to disagree with or attack referenced content\n"
+                    "- shares_without_clear_stance: referenced content is shared but endorsement is not clear\n"
+                    "- unclear: cannot determine\n\n"
+
+                    "Return JSON in exactly this format:\n"
+                    "{\n"
+                    "  \"tweets\": [\n"
+                    "    {\n"
+                    "      \"username\": \"\",\n"
+                    "      \"display_name\": \"\",\n"
+                    "      \"post_type\": \"original | retweet | quote_tweet | reply | thread_post | unclear\",\n"
+                    "      \"actor_commentary\": \"\",\n"
+                    "      \"referenced_username\": \"\",\n"
+                    "      \"referenced_display_name\": \"\",\n"
+                    "      \"referenced_post_text\": \"\",\n"
+                    "      \"relationship_to_referenced_post\": \"endorses | criticises | shares_without_clear_stance | unclear\",\n"
+                    "      \"full_visible_meaning\": \"\",\n"
+                    "      \"likes\": \"\",\n"
+                    "      \"retweets\": \"\"\n"
+                    "    }\n"
+                    "  ]\n"
+                    "}"
+                )
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Extract all visible main-feed posts from this screenshot. "
+                            "For each item, determine whether it is an original post, retweet/repost, "
+                            "quote tweet, reply, thread post, or unclear. "
+                            "Where visible, include both the user's own commentary and any referenced/original post text. "
+                            "If a user appears to be agreeing with, criticising, or neutrally sharing referenced content, record that. "
+                            "Summarise the combined visible meaning in 'full_visible_meaning'. "
+                            "Return ONLY valid JSON."
+                        )
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{content_type};base64,{image_b64}"
+                        }
                     }
-                }
-            ]
-        }
-    ]
-)
+                ]
+            }
+        ]
+    )
 
     #Extracting model output (JSON string)
     json_output = response.choices[0].message.content
@@ -766,7 +799,7 @@ def process_one_capture(doc):
 
     #Checking if tweets are duplicates and saving to mongo
     for item in parsed_tweets:
-        tweet_text = item.get("tweet", "")
+        tweet_text = item.get("full_visible_meaning") or item.get("actor_commentary", "")
         tweet_normalized = normalize_tweet_text(tweet_text)
         tweet_hash = make_tweet_hash(tweet_normalized)
 
@@ -797,14 +830,29 @@ def process_one_capture(doc):
             "session_id": doc.get("session_id", ""),
             "capture_id": str(doc["_id"]),
             "image_name": datetime.now().strftime("%d-%m-%Y"),
+
             "username": item.get("username", ""),
             "display_name": item.get("display_name", ""),
-            "tweet": item.get("tweet", ""),
+
+            #Main text field
+            "tweet": item.get("full_visible_meaning", ""),
+
+            #Context fields
+            "post_type": item.get("post_type", "unclear"),
+            "actor_commentary": item.get("actor_commentary", ""),
+            "referenced_username": item.get("referenced_username", ""),
+            "referenced_display_name": item.get("referenced_display_name", ""),
+            "referenced_post_text": item.get("referenced_post_text", ""),
+            "relationship_to_referenced_post": item.get("relationship_to_referenced_post", "unclear"),
+            "full_visible_meaning": item.get("full_visible_meaning", ""),
+            
+            #Normalisation
             "tweet_normalized": tweet_normalized,
             "tweet_hash": tweet_hash,
+            
             "likes": item.get("likes", ""),
             "retweets": item.get("retweets", ""),
-        })
+    })
 
     #Mark original capture as processed
     captures.update_one(
@@ -817,7 +865,17 @@ def process_one_capture(doc):
 def process_one_sentiment(collection, doc):
 
     #Getting tweet from document
-    tweet_text = doc["tweet"]
+    context_text = f"""
+    username: {doc.get('username', '')}
+    display_name: {doc.get('display_name', '')}
+    post_type: {doc.get('post_type', '')}
+    actor_commentary: {doc.get('actor_commentary', '')}
+    referenced_username: {doc.get('referenced_username', '')}
+    referenced_display_name: {doc.get('referenced_display_name', '')}
+    referenced_post_text: {doc.get('referenced_post_text', '')}
+    relationship_to_referenced_post: {doc.get('relationship_to_referenced_post', '')}
+    full_visible_meaning: {doc.get('full_visible_meaning') or doc.get('actor_commentary', '')}
+    """
 
     #Calling API and creating chat completion request
     response = openai_client.chat.completions.create(
@@ -825,51 +883,37 @@ def process_one_sentiment(collection, doc):
         messages=[
             {
                 "role": "system",
-                "content": (
-                    "You are a sentiment and political-alignment classifier. "
-                    "Classify content based ONLY on language, framing, and expressed positions. "
-                    "Do not apply moral judgment or assume correctness of any viewpoint. "
+                    "content": (
+                        "You are a sentiment and political-alignment classifier for Twitter/X posts. "
+                        "Classify the OVERALL expressed stance of the visible post using all provided context. "
+                        "This includes whether the post is an original post, retweet, quote tweet, or reply, "
+                        "and whether the visible user appears to endorse, criticise, or neutrally share referenced content.\n\n"
 
-                    "LEFT-LEANING: "
-                    "- emphasizes collective responsibility, systemic or structural explanations; "
-                    "- focuses on equality, redistribution, or group-level outcomes; "
-                    "- supports expanded government, regulation, or institutional intervention; "
-                    "- uses framing aligned with progressive, socialist, or egalitarian traditions. "
+                        "Core rule:\n"
+                        "- Do NOT classify based only on the referenced post text.\n"
+                        "- Do NOT classify based only on the user's short commentary.\n"
+                        "- Classify the combined visible meaning from all available context.\n"
+                        "- If a user reposts or quote-tweets content approvingly, the referenced content should influence classification strongly.\n"
+                        "- If a user reposts or quote-tweets content critically, classify according to the user's overall stance, not the referenced author's stance.\n"
+                        "- If stance toward referenced content is unclear, use 'unclear' unless the user's own commentary is sufficient.\n\n"
 
-                    "RIGHT-LEANING: "
-                    "- emphasizes individual responsibility, national identity, or cultural continuity; "
-                    "- focuses on sovereignty, borders, security, tradition, or market outcomes; "
-                    "- supports limited government, enforcement, or established institutions; "
-                    "- uses framing aligned with conservative, nationalist, or free-market traditions. "
+                        "Political alignment categories:\n"
+                        "- left: progressive, redistributive, egalitarian, structural/systemic framing\n"
+                        "- right: conservative, nationalist, sovereignty/border/tradition/free-market framing\n"
+                        "- centre: mixed, moderate, pragmatic, cross-ideological\n"
+                        "- apolitical: no meaningful political content\n"
+                        "- unclear: not enough evidence or conflicting signals\n\n"
 
-                    "CENTRIST / MODERATE: "
-                    "- balances or mixes left and right framing; "
-                    "- focuses on pragmatism, trade-offs, or incremental change; "
-                    "- avoids strong ideological or absolutist language. "
-
-                    "APOLITICAL: "
-                    "- contains no political claims, advocacy, or ideological framing; "
-                    "- topics such as sports, entertainment, personal anecdotes, or non-political news. "
-
-                    "UNCLEAR: "
-                    "- insufficient or ambiguous information to infer political alignment. "
-
-                    "Rules: "
-                    "- Political alignment is inferred from the text itself, including both explicit ideological statements and implicit political signaling."
-                    "- Implicit political signaling includes framing, narratives, or language commonly associated with contemporary political factions, even if no policy or ideology is explicitly stated."
-                    "- Criticism of governments, religions, cultures, or ideologies is NOT inherently hateful."
-                    "- Emotional tone and toxicity are independent of political alignment. "
-                    "- Do not infer intent beyond the provided text. "
-
-                    "Output JSON format:\n"
-                    "{\n"
-                    "  \"emotional_valence\": \"positive | neutral | negative | serious\",\n"
-                    "  \"emotion_intensity\": 0.0 to 1.0,\n"
-                    "  \"moral_stance\": \"supportive | condemning | informative | neutral | sarcastic\",\n"
-                    "  \"political_leaning\": \"left | right | centre | apolitical | unclear\",\n"
-                    "  \"is_toxic\": true | false,\n"
-                    "  \"topic\": \"short neutral topic\"\n"
-                    "}\n"
+                        "Output JSON format:\n"
+                        "{\n"
+                        "  \"emotional_valence\": \"positive | neutral | negative | serious\",\n"
+                        "  \"emotion_intensity\": 0.0,\n"
+                        "  \"moral_stance\": \"supportive | condemning | informative | neutral | sarcastic\",\n"
+                        "  \"political_leaning\": \"left | right | centre | apolitical | unclear\",\n"
+                        "  \"is_toxic\": true,\n"
+                        "  \"topic\": \"short neutral topic\",\n"
+                        "  \"stance_reason\": \"short explanation of how the overall stance was inferred\"\n"
+                        "}"
                 )
             },
             {
@@ -877,7 +921,11 @@ def process_one_sentiment(collection, doc):
                 "content": [
                     {
                         "type": "text",
-                        "text": f"Tweet: {tweet_text}\n\nAnalyse the sentiment and return JSON only."
+                        "text": (
+                            f"Classify this Twitter/X post using all context below.\n\n"
+                            f"{context_text}\n\n"
+                            "Return JSON only."
+                        )
                     }
                 ]
             }
