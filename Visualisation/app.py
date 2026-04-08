@@ -26,6 +26,10 @@ if "user_email" not in st.session_state:
 if "auth_token" not in st.session_state:
     st.session_state["auth_token"] = ""
 
+query_params = st.query_params
+reset_token_from_url = query_params.get("reset_token", "")
+reset_email_from_url = query_params.get("email", "")
+
 #Helper returning auth token in session state
 def auth_headers():
     return {
@@ -151,8 +155,16 @@ if not st.session_state["user_id"]:
                     st.error("Could not send reset email")
 
         with st.form("reset_password_form"):
-            reset_email = st.text_input("Email", key="reset_email")
-            reset_token = st.text_input("Reset Token")
+            reset_email = st.text_input("Email", value=reset_email_from_url, key="reset_email")
+
+            #Using token directly from email link 
+            reset_token = reset_token_from_url
+
+            if reset_token:
+                st.caption("Reset link detected.")
+            else:
+                st.warning("Please open the reset link in your email.")
+
             reset_new_password = st.text_input("New Password", type="password")
             reset_confirm_password = st.text_input("Confirm New Password", type="password")
             reset_submit = st.form_submit_button("Reset Password")
@@ -170,10 +182,10 @@ if not st.session_state["user_id"]:
                     try:
                         error_message = e.response.json().get("detail", "Reset failed")
                     except Exception:
-                        error_message = "Reset failed"
+                        error_message = f"Reset failed: {e}"
                     st.error(error_message)
-                except Exception:
-                    st.error("Unexpected error while resetting password")
+                except Exception as e:
+                    st.error(f"Unexpected error while resetting password: {e}")
 
     st.stop()
 

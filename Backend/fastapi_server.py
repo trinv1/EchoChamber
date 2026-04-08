@@ -192,6 +192,7 @@ def reset_password(
             salt="password-reset",
             max_age=3600
         )
+        print("TOKEN EMAIL:", token_email)
     except SignatureExpired:
         raise HTTPException(status_code=400, detail="Reset link has expired")
     except BadSignature:
@@ -248,6 +249,8 @@ def send_reset_email(user_email: str):
         "api-key": BREVO_API_KEY,
         "content-type": "application/json"
     }
+
+    print("RESET LINK:", reset_link)
 
     response = requests.post(url, json=payload, headers=headers, timeout=20)
 
