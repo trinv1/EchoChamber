@@ -52,6 +52,22 @@ def login_user(email, password):
     r.raise_for_status()
     return r.json()
 
+#Helper function to change password
+def change_password(current_password, new_password, confirm_password):
+    data = {
+        "current_password": current_password,
+        "new_password": new_password,
+        "confirm_password": confirm_password,
+    }
+
+    r = requests.post(
+        f"{API_BASE}/change-password",
+        data=data,
+        headers=auth_headers()
+    )
+    r.raise_for_status()
+    return r.json()
+
 st.title("FeedScope")
 
 #If user id isnt in session state, show tabs
@@ -105,6 +121,29 @@ if st.sidebar.button("Logout"):
     st.session_state["user_email"] = ""
     st.session_state["auth_token"] = ""
     st.rerun()
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("Change Password")
+
+#Form for user to change password
+with st.sidebar.form("change_password_form"):
+    current_password = st.text_input("Current Password", type="password")
+    new_password = st.text_input("New Password", type="password")
+    confirm_password = st.text_input("Confirm New Password", type="password")
+    change_password_submit = st.form_submit_button("Update Password")
+
+    if change_password_submit:
+        try:
+            result = change_password(current_password, new_password, confirm_password)
+            st.sidebar.success("Password updated successfully")
+        except requests.HTTPError as e:
+            try:
+                error_message = e.response.json().get("detail", "Failed to update password")
+            except Exception:
+                error_message = "Failed to update password"
+            st.sidebar.error(error_message)
+        except Exception as e:
+            st.sidebar.error("Unexpected error while updating password")
 
 tab3, tab4, tab5 = st.tabs(["Analysis", "Create Study", "Edit/Delete Study"])
 
