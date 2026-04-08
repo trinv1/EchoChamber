@@ -2,7 +2,6 @@ import streamlit as st
 import requests
 import pandas as pd
 import matplotlib.pyplot as plt
-from st_copy import copy_button
 
 API_BASE = "https://echochamber-q214.onrender.com"
 
