@@ -991,7 +991,17 @@ def process_one_capture(doc):
                             "quote tweet, reply, thread post, or unclear. "
                             "Where visible, include both the user's own commentary and any referenced/original post text. "
                             "If a user appears to be agreeing with, criticising, or neutrally sharing referenced content, record that. "
-                            "Summarise the combined visible meaning in 'full_visible_meaning'. "
+
+                            "CRITICAL RULE: "
+                            "Do NOT summarise, interpret, or describe the content. "
+                            "Do NOT write sentences like 'The user retweeted...' or 'This post is about...'. "
+                            "ONLY extract text that is directly visible in the screenshot. "
+                            "actor_commentary must be the exact visible text written by the user. "
+                            "referenced_post_text must be the exact visible text of the original or quoted tweet. "
+                            "full_visible_meaning must be a direct concatenation of actor_commentary and referenced_post_text, not a summary. "
+                            "If there is no visible text for a field, return an empty string. "
+                            "If you are unsure, return an empty string instead of guessing. "
+
                             "Return ONLY valid JSON."
                         )
                     },
@@ -1025,7 +1035,10 @@ def process_one_capture(doc):
 
     #Checking if tweets are duplicates and saving to mongo
     for item in parsed_tweets:
-        tweet_text = item.get("full_visible_meaning") or item.get("actor_commentary", "")
+        tweet_text = (
+            (item.get("actor_commentary") or "") + " " +
+            (item.get("referenced_post_text") or "")
+        ).strip()
         tweet_normalized = normalize_tweet_text(tweet_text)
         tweet_hash = make_tweet_hash(tweet_normalized)
 
@@ -1061,7 +1074,7 @@ def process_one_capture(doc):
             "display_name": item.get("display_name", ""),
 
             #Main text field
-            "tweet": item.get("full_visible_meaning", ""),
+            "tweet": tweet_text,
 
             #Context fields
             "post_type": item.get("post_type", "unclear"),
@@ -1070,7 +1083,7 @@ def process_one_capture(doc):
             "referenced_display_name": item.get("referenced_display_name", ""),
             "referenced_post_text": item.get("referenced_post_text", ""),
             "relationship_to_referenced_post": item.get("relationship_to_referenced_post", "unclear"),
-            "full_visible_meaning": item.get("full_visible_meaning", ""),
+            "full_visible_meaning": tweet_text,
             
             #Normalisation
             "tweet_normalized": tweet_normalized,
