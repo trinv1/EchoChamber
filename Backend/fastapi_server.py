@@ -86,8 +86,10 @@ def signup(
     }
     
 
-    result = users.insert_one(doc)
-    return {"ok": True, "user_id": str(result.inserted_id), "email": email, "token": token}
+    users.insert_one(doc)
+    send_verification_email(email)
+
+    return {"ok": True, "message": "Account created. Please verify your email."}
 
 #Posting login to mongo to verify user
 @app.post("/login")
