@@ -85,9 +85,15 @@ def signup(
         "created_at": datetime.now(timezone.utc),
     }
     
-
-    users.insert_one(doc)
-    send_verification_email(email)
+    try:
+        users.insert_one(doc)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Email already exists")
+    
+    try:
+        send_verification_email(email)
+    except Exception as e:
+        print("Email sending failed:", e)
 
     return {"ok": True, "message": "Account created. Please verify your email."}
 

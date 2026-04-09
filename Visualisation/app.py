@@ -100,6 +100,21 @@ def reset_password(email, reset_token, new_password, confirm_password):
 
 #If user id isnt in session state, show tabs
 if not st.session_state["user_id"]:
+    if verify_token_from_url and not st.session_state.get("email_verified_message_shown", False):
+            try:
+                data = {
+                    "email": verify_email_from_url,
+                    "verify_token": verify_token_from_url
+                }
+
+                r = requests.post(f"{API_BASE}/verify-email", data=data)
+                r.raise_for_status()
+
+                st.session_state["email_verified_message_shown"] = True
+                st.success("Email verified successfully. You can now log in.")
+            except Exception:
+                st.error("Verification failed or expired.")
+
     tab1, tab2, tab3 = st.tabs(["Login", "Sign up", "Forgot password"])
 
     with tab1:
@@ -122,20 +137,6 @@ if not st.session_state["user_id"]:
                 except Exception as e:
                     st.error(f"Invalid email or password. Please try again")
 
-            if verify_token_from_url:
-                try:
-                    data = {
-                        "email": verify_email_from_url,
-                        "verify_token": verify_token_from_url
-                    }
-
-                    r = requests.post(f"{API_BASE}/verify-email", data=data)
-                    r.raise_for_status()
-
-                    st.success("Email verified successfully. You can now log in.")
-                except Exception as e:
-                    st.error("Verification failed or expired.")
-
     with tab2:
         st.markdown("### Sign up")
 
@@ -153,8 +154,13 @@ if not st.session_state["user_id"]:
                     st.session_state["auth_token"] = result["token"]
                     st.success("Account created successfully")
                     st.rerun()
-                except Exception as e:
-                    st.error(f"Signup failed. Email already exists")
+                except requests.HTTPError as e:
+                    try:
+                        error_message = e.response.json().get("detail", "Signup failed")
+                    except Exception:
+                        error_message = "Signup failed"
+
+                    st.error(error_message)
     
     with tab3:
         st.markdown("### Forgot Password")
@@ -184,8 +190,6 @@ if not st.session_state["user_id"]:
 
             if reset_token:
                 st.caption("Reset link detected.")
-            else:
-                st.warning("Please open the reset link in your email.")
 
             reset_new_password = st.text_input("New Password", type="password")
             reset_confirm_password = st.text_input("Confirm New Password", type="password")
