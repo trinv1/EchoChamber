@@ -38,6 +38,7 @@ async function uploadToRender(dataUrl, tabId, pageUrl, ts, studyId, subjectId, p
   
   const blob = await (await fetch(dataUrl)).blob();
 
+  //Creating form object and appending items 
   const formData = new FormData();
   formData.append("image", blob, "capture.png");
   formData.append("tabId", String(tabId ?? ""));
@@ -48,6 +49,7 @@ async function uploadToRender(dataUrl, tabId, pageUrl, ts, studyId, subjectId, p
   formData.append("phaseId", phaseId ?? "");
   formData.append("sessionId", sessionId ?? "");
 
+  //Sending POST request with token to upload endpoint
   const res = await fetch("https://echochamber-q214.onrender.com/upload", {
     method: "POST",
     headers: {
@@ -74,6 +76,7 @@ async function startSession(studyId, subjectId, phaseId) {
   formData.append("session_id", `session_${Date.now()}`);
   formData.append("label", "Extension capture run");
 
+  //Sending authenticated POST request to endpoint
   const res = await fetch("https://echochamber-q214.onrender.com/sessions/start", {
     method: "POST",
     headers: {
@@ -105,7 +108,7 @@ async function stopSession(studyId, sessionId) {
     body: formData,
     headers: {
       Authorization: `Bearer ${authToken}`
-    },
+    }, 
   });
 
   if (!res.ok) {
@@ -115,13 +118,15 @@ async function stopSession(studyId, sessionId) {
   return await res.json();
 }
 
-//Start capture+upload loop
+//Starting capture+upload loop
 async function startCaptureLoop(tabId, intervalMs = 1500, studyId = "", subjectId = "", phaseId = "", sessionId = "") {
   stopCaptureLoop();
   capturingTabId = tabId;
 
+  //Repeating timer
   captureTimer = setInterval(async () => {
-    //avoid overlapping uploads if network is slow
+    
+    //Avoid overlapping uploads if network is slow
     if (isUploading) return;
       if (Date.now() < backoffUntil) return; //backoff active, skip this tick
 
@@ -140,7 +145,11 @@ async function startCaptureLoop(tabId, intervalMs = 1500, studyId = "", subjectI
         type: "GET_ACTIVE_ACCOUNT"
       });
 
-      const detectedAccount = response?.account ?? "unknown";
+      if (response && response.account !== null && response.account !== undefined) {
+        detectedAccount = response.account;
+      } else {
+        detectedAccount = "unknown";
+      }
       const ts = new Date().toISOString();
       console.log("Detected account:", detectedAccount, "URL:", tab.url);
 
@@ -172,23 +181,27 @@ function stopCaptureLoop() {
   isUploading = false;
 }
 
-//Listening for message to start or stop scrolling from popup.js
+//Listening for start message from popup.js
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     if (msg.type == "START") {
+      //Storing incoming tab and study values in global variables
       currentTabId = msg.tabId;
       currentStudyId = msg.studyId ?? "";
       currentSubjectId = msg.subjectId ?? "";
       currentPhaseId = msg.phaseId ?? "";
 
+      //Sending ids to session/start endpoint
       const sessionResult = await startSession(
         currentStudyId,
         currentSubjectId,
         currentPhaseId
     );
 
+    //Storing sessionId returned from session/start endpoint
     currentSessionId = sessionResult.session_id;
 
+    //Injecting content.js into active tab and sending message
     await ensureContentScript(currentTabId);
     await chrome.tabs.sendMessage(currentTabId, { type: "START_SCROLL" });
     

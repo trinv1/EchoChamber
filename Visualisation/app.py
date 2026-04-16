@@ -407,6 +407,76 @@ def fetch_topic_by_leaning(study_id="", subject_id="", phase_id="", session_id="
     r.raise_for_status()
     return r.json()
 
+#Summarise one phase into counts + percentages by political leaning
+def summarise_phase_leaning(study_id="", subject_id="", phase_id="", session_id=""):
+    stats_data = fetch_political_leaning(study_id, subject_id, phase_id, session_id)
+    series = stats_data.get("series", [])
+
+    if not series:
+        return pd.DataFrame(columns=["political_leaning", "count", "percentage"])
+
+    df = pd.DataFrame(series)
+
+    if df.empty or "political_leaning" not in df.columns or "count" not in df.columns:
+        return pd.DataFrame(columns=["political_leaning", "count", "percentage"])
+
+    summary = (
+        df.groupby("political_leaning", as_index=False)["count"]
+        .sum()
+    )
+
+    total = summary["count"].sum()
+    if total > 0:
+        summary["percentage"] = (summary["count"] / total) * 100
+    else:
+        summary["percentage"] = 0.0
+
+    return summary
+
+
+#Compare one political leaning across two phases for one chosen subject
+def compare_leaning_between_phases(study_id, subject_id, phase_a, phase_b, leaning, session_id=""):
+    phase_a_df = summarise_phase_leaning(
+        study_id=study_id,
+        subject_id=subject_id,
+        phase_id=phase_a,
+        session_id=session_id
+    )
+
+    phase_b_df = summarise_phase_leaning(
+        study_id=study_id,
+        subject_id=subject_id,
+        phase_id=phase_b,
+        session_id=session_id
+    )
+
+    def get_values(summary_df, chosen_leaning):
+        if summary_df.empty:
+            return 0, 0.0
+
+        row = summary_df[summary_df["political_leaning"] == chosen_leaning]
+        if row.empty:
+            return 0, 0.0
+
+        count = int(row["count"].iloc[0])
+        percentage = float(row["percentage"].iloc[0])
+        return count, percentage
+
+    phase_a_count, phase_a_pct = get_values(phase_a_df, leaning)
+    phase_b_count, phase_b_pct = get_values(phase_b_df, leaning)
+
+    return {
+        "phase_a": phase_a,
+        "phase_b": phase_b,
+        "leaning": leaning,
+        "phase_a_count": phase_a_count,
+        "phase_b_count": phase_b_count,
+        "phase_a_pct": phase_a_pct,
+        "phase_b_pct": phase_b_pct,
+        "count_diff": phase_b_count - phase_a_count,
+        "pct_diff": phase_b_pct - phase_a_pct
+    }
+
 #Helpers to update and delete study
 def update_study(study_id, name, description):
     data = {
@@ -679,6 +749,103 @@ with tab4:
 
     session_id = st.selectbox("Session ID", [""] + session_options)
 
+   #---------------- Sidebar: Phase Difference Calculator ----------------#
+
+    st.sidebar.markdown("---")
+    #Section title
+    st.sidebar.subheader("Phase Difference Calculator")
+
+    #Dropdown to select subject to analyse
+    compare_subject_id = st.sidebar.selectbox(
+        "Subject for comparison",
+        [""] + subject_options,
+        #Show label if available, otherwise show raw subject_id
+        format_func=lambda sid: "Select subject" if sid == "" else subject_label_map.get(sid, sid),
+        key="compare_subject_id"
+    )
+
+    #Dropdown to select which political leaning to compare
+    compare_leaning = st.sidebar.selectbox(
+        "Political leaning",
+        ["left", "right", "centre", "centrist", "apolitical", "unclear"],
+        key="compare_leaning"
+    )
+
+    #Dropdown to select first phase (baseline)
+    compare_phase_a = st.sidebar.selectbox(
+        "From phase",
+        [""] + phase_options,
+        key="compare_phase_a"
+    )
+
+    #Dropdown to select second phase (comparison phase)
+    compare_phase_b = st.sidebar.selectbox(
+        "To phase",
+        [""] + phase_options,
+        key="compare_phase_b"
+    )
+
+    #Optional filter to narrow analysis to a specific session
+    compare_session_id = st.sidebar.selectbox(
+        "Session filter (optional)",
+        [""] + session_options,
+        key="compare_session_id"
+    )
+
+    #Button to trigger calculation
+    if st.sidebar.button("Calculate phase difference"):
+
+        #Validation: ensure required inputs are selected
+        if not study_id:
+            st.sidebar.warning("Please select a study first.")
+        elif not compare_subject_id:
+            st.sidebar.warning("Please select a subject.")
+        elif not compare_phase_a or not compare_phase_b:
+            st.sidebar.warning("Please select both phases.")
+
+        else:
+            try:
+                #Call helper function to compute difference between phases
+                result = compare_leaning_between_phases(
+                    study_id=study_id,
+                    subject_id=compare_subject_id,
+                    phase_a=compare_phase_a,
+                    phase_b=compare_phase_b,
+                    leaning=compare_leaning,
+                    session_id=compare_session_id
+                )
+
+                #Display selected subject (label if available)
+                st.sidebar.markdown(
+                    f"**Subject:** {subject_label_map.get(compare_subject_id, compare_subject_id)}"
+                )
+
+                #Display percentage values for both phases
+                st.sidebar.markdown(f"**Phase {result['phase_a']} %:** {result['phase_a_pct']:.2f}%")
+                st.sidebar.markdown(f"**Phase {result['phase_b']} %:** {result['phase_b_pct']:.2f}%")
+
+                #Display percentage point difference (+ / -)
+                st.sidebar.markdown(f"**Percentage difference:** {result['pct_diff']:+.2f}")
+
+                #Interpretation of result (increase / decrease / no change)
+                if result["pct_diff"] > 0:
+                    st.sidebar.success(
+                        f"{compare_leaning.title()} leaning increased from phase {compare_phase_a} to phase {compare_phase_b}."
+                    )
+                elif result["pct_diff"] < 0:
+                    st.sidebar.info(
+                        f"{compare_leaning.title()} leaning decreased from phase {compare_phase_a} to phase {compare_phase_b}."
+                    )
+                else:
+                    st.sidebar.info(
+                        f"{compare_leaning.title()} leaning stayed the same between phase {compare_phase_a} and phase {compare_phase_b}."
+                    )
+            except requests.HTTPError as e:
+                st.sidebar.error(f"API error: {e}")
+
+            except Exception as e:
+                st.sidebar.error("Could not calculate phase difference.")
+
     #Loading analysis from data
     if st.button("Load analysis"):
         if not subject_ids:
@@ -702,7 +869,7 @@ with tab4:
                         topic_by_leaning_data = fetch_topic_by_leaning(study_id, subject_id, phase_id, session_id, limit=10)
 
                         #Show total number of tweets collected
-                        st.write("Tweet count:", tweet_data["count"])
+                        #st.write("Tweet count:", tweet_data["count"])
 
                         #Display pie chart for political leaning distribution
                         fig, stats_df = make_pie_from_stats(stats_data["series"])

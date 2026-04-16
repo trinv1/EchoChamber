@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header, BackgroundTasks
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header
 from datetime import datetime
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -113,13 +113,16 @@ def login(
     if not pwd_context.verify(password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
+    #Generating random token
     token = secrets.token_hex(32)
 
+    #Storing token in user document
     users.update_one(
         {"_id": user["_id"]},
         {"$set": {"auth_token": token}}
     )
 
+    #Returning respective json
     return {
         "ok": True,
         "user_id": str(user["_id"]),
@@ -334,7 +337,7 @@ def send_reset_email(user_email: str):
             detail=f"Email sending failed: {response.text}"
         )
 
-#Get current user from token
+#Getting current user using bearer token
 def get_current_user(authorization: str = Header("")):
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing token")
@@ -347,7 +350,7 @@ def get_current_user(authorization: str = Header("")):
 
     return user
 
-#Get current user
+#Endpoint to get current user using auth key in request header
 @app.get("/me")
 def get_me(authorization: str = Header("")):
     user = get_current_user(authorization)
@@ -461,6 +464,7 @@ def start_session(
     label: str = Form(""),
     authorization: str = Header("")
 ):    
+    #Validating user token and getting current user
     user = get_current_user(authorization)
     owner_id = str(user["_id"])
 
@@ -476,6 +480,7 @@ def start_session(
         "ended_at": None,
     }
 
+    #Inserting new session document
     result = sessions.insert_one(doc)
 
     return {"ok": True, "id": str(result.inserted_id), "session_id": session_id, "status": "active",}
@@ -1057,7 +1062,7 @@ def political_leaning_stats(
 
 os.makedirs("uploads", exist_ok=True)
 
-#Endpoint to upload image
+#Endpoint to upload image to Mongo
 @app.post("/upload")
 async def upload(
     image: UploadFile = File(...),

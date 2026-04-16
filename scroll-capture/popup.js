@@ -134,6 +134,7 @@ document.getElementById("login").addEventListener("click", async () => {
 
     const result = await loginExtension(email, password);
 
+    //Saving auth token in browser extension local storage
     await chrome.storage.local.set({
       authToken: result.token
     });
@@ -222,6 +223,7 @@ document.getElementById("start").addEventListener("click", async () => {
     document.getElementById("sessionId").value = sessionId;
   }
   
+  //Sending START message to background service worker
   await chrome.runtime.sendMessage({
     type: "START",
     tabId: tab.id,
@@ -232,6 +234,7 @@ document.getElementById("start").addEventListener("click", async () => {
     phaseId,
   });
 
+  //Updating popup status
   statusEl.textContent = "Running";
 }); 
 
