@@ -621,8 +621,11 @@ with tab4:
         #Sort values so chart displays in sensible order
         df = df.sort_values(value_key, ascending=True if horizontal else False)
 
+        #Make chart height depend on number of rows
+        chart_height = max(4, len(df) * 0.45)
+
         #Create chart figure
-        fig, ax = plt.subplots(figsize=(7, 4))
+        fig, ax = plt.subplots(figsize=(7, chart_height))
 
         #Draw horizontal bar chart
         if horizontal:
