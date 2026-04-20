@@ -35,33 +35,33 @@ Extracted data and metadata are stored in a MongoDB Atlas database.
 
 Tweets are analysed using large language models to determine:
 
-Political leaning
-Emotional tone
-Topic classification
-Backend (FastAPI)
+- Political leaning
+- Emotional tone
+- Topic classification
+- Backend (FastAPI)
 
 ### A RESTful API handles:
 
-Authentication
-Data ingestion
-Background processing
-Retrieval of processed results
-Frontend (Streamlit)
+- Authentication
+- Data ingestion
+- Background processing
+- Retrieval of processed results
+- Frontend (Streamlit)
 
 ### An interactive dashboard allows users to:
 
-Manage studies and phases
-View sentiment and political distributions
-Analyse trends over time
-Automation
+- Manage studies and phases
+- View sentiment and political distributions
+- Analyse trends over time
+- Automation
 
 # Tech Stack
-Python
-FastAPI
-Streamlit
-MongoDB Atlas
-OpenAI API
-Chrome Extension (JavaScript, Manifest V3)
+* Python
+* FastAPI
+* Streamlit
+* MongoDB Atlas
+* OpenAI API
+* Chrome Extension (JavaScript, Manifest V3)
 
 # How to run
 **Clone repository:**
