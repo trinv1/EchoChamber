@@ -1,79 +1,155 @@
 STUDY PROTOCOL FOR TWITTER (X) FEED CAPTURE
 
-This protocol ensures consistent, unbiased, and replicable data collection for analysing personalised recommendation feeds on Twitter (X).
+This protocol ensures consistent, unbiased, and replicable data collection for analysing personalised recommendation feeds on X.
 
-**PHASE 1 — Baseline Data Collection (Pre-Gender Assignment)**
+---
+
+PHASE 1 — Baseline Data Collection (Pre-Gender Assignment)
 
 1. Account Creation
 
-Two separate Twitter accounts are used to evaluate potential differences in recommendation behaviour under controlled conditions.
+Two separate X accounts were created to evaluate potential differences in recommendation behaviour under controlled conditions.
 
 Accounts:
-* 'girluser112'
-* 'boyuser112'
+- girluser112
+- boyuser112
 
 Controlled Setup:
-To minimise initial algorithmic divergence, both accounts are configured identically.
+Both accounts were configured identically to minimise initial algorithmic divergence.
 
-Initial Interests Selected for BOTH accounts:<br>
-News<br>
-Movies & TV<br>
-Technology<br>
-Business & Finance<br>
-Career<br>
-Gaming<br>
-Health & Fitness<br>
-Memes<br>
-Education<br>
-Science<br>
-Religion<br>
+Initial Interests Selected for BOTH accounts:
+- News
+- Movies & TV
+- Technology
+- Business & Finance
+- Career
+- Gaming
+- Health & Fitness
+- Memes
+- Education
+- Science
+- Religion
 
-This ensures the only meaningful variable between accounts is the account username (A vs. B), not their expressed interest
+At this stage, no explicit gender signals were assigned.
+
+---
 
 2. Data Collection Environment
 
-To avoid external bias:
-* Same physical device is used for both accounts
-* Same browser (Chrome)
-* Same network connection
-* No browser extensions or ad-blockers
-* No manual interaction before or after scrolling outside the defined protocol
+To ensure consistency:
+- Same physical device
+- Same browser (Chrome)
+- Same network connection
+- No additional browser extensions
+- No manual interaction outside defined protocol
+
+---
 
 3. Image Capturing Procedure
 
-For each weekly capture session:
-1. Log in to the designated account (User A or User B) immediately before the screenshot task is scheduled.
-2. Navigate to the For You feed.
-3. Perform a smooth, continuous downward scroll at a consistent pace.
-4. No likes, no clicks, no interactions.
-5. No hovering over UI elements that might trigger hover-based tracking.
-6. The screenshot script automatically captures the feed for 1 minute.
-7. Immediately log out after the automated capture is complete.
-8. Repeat the procedure for the second account under identical conditions.
+For each capture session:
+1. Log in to the designated account immediately before capture
+2. Navigate to the “For You” feed
+3. Initiate automated scrolling via the Chrome extension
+4. No manual interaction (no likes, clicks, or hovers)
+5. Screenshots captured continuously for 2 minutes
+6. Log out immediately after capture
+7. Repeat for the second account under identical conditions
 
-This maintains consistency and avoids introducing behavioural signals into the recommendation model.
+---
 
-4. Avoiding Algorithmic Bias
+PHASE 2 — Gender Assignment
 
-To prevent contaminating the recommendation algorithm:
-* No liking, retweeting, or following on either account
-* No DMs or manual exploration
-* Never stay logged into an account unless capturing data
-* Each session is done in the same order (A then B)
+- boyuser112 assigned gender: Male  
+- girluser112 assigned gender: Female  
 
-This avoids asymmetric behavioural drift between the two accounts.
+No behavioural interactions introduced.
 
-5. Frequency
-* Data is captured once per week at a consistent time
-* Duration of each capture: 1 minute per account
-* Screenshots are saved and timestamped automatically
+Purpose:
+To isolate the effect of explicit gender signals on recommendation output.
 
-**PHASE 2: Experimental Intervention: Gender Assignment**
+---
 
-* Profile gender set to `Male` for boyuser112 
-* Profile gender set to `Female` for girluser112
+PHASE 3 — Gendered Username Assignment
 
-This isolates gender as the only new informational signal to the recommender model.
+Usernames updated to reflect gender identity more strongly:
+- Male account -> briansmith2211
+- Female account -> rachelsmith221
 
+All other variables remain unchanged.
+
+Purpose:
+To strengthen identity signals provided to the recommendation system.
+
+---
+
+PHASE 4 — Controlled Posting
+
+Both accounts posted identical neutral content designed to introduce light engagement signals (general interest of politics).
+
+Conditions:
+- Same post content across both accounts
+- No additional interaction beyond posting
+
+Purpose:
+To observe whether posting behaviour influences feed composition.
+
+---
+
+PHASE 5 — Controlled Engagement (Liking)
+
+Both accounts liked the same selected tweet (e.g a politically aligned post).
+
+Conditions:
+- Same tweet liked by both accounts
+- No additional engagement beyond this interaction
+
+Purpose:
+To introduce a minimal but explicit behavioural signal into the system.
+
+---
+
+PHASE 6 — Following Political Accounts (Balanced Input)
+
+Both accounts followed the same set of political accounts:
+- Equal number of left-leaning and right-leaning accounts
+
+Conditions:
+- Identical follow list across both accounts
+- No additional interaction beyond following
+
+Purpose:
+To test whether balanced ideological input produces balanced recommendation output.
+
+---
+
+PHASE 7 — Strong Engagement Signals (Divergent Input)
+
+Accounts were assigned opposing ideological signals:
+
+- Male account followed predominantly left-leaning accounts
+- Female account followed predominantly right-leaning accounts
+
+Conditions:
+- Clear ideological separation between accounts
+- Continued automated capture under same conditions
+
+Purpose:
+To observe whether strong and opposing engagement signals lead to aligned recommendation outputs.
+
+---
+
+GENERAL CONTROL MEASURES (ALL PHASES)
+
+- Identical capture conditions across accounts
+- Same device, browser, and network
+- No uncontrolled interactions outside defined actions
+- Phases applied sequentially with only one variable changed at a time (where possible)
+
+---
+
+LIMITATIONS NOTE
+
+While the protocol aims to isolate individual variables, later phases introduce controlled interactions (posting, liking, following) to simulate realistic user behaviour. These interactions were applied systematically across both accounts to maintain comparability.
 
 
