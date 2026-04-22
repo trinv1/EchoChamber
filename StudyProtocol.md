@@ -1,4 +1,4 @@
-STUDY PROTOCOL FOR X FEED CAPTURE
+# STUDY PROTOCOL FOR X FEED CAPTURE
 
 This protocol ensures consistent, unbiased, and replicable data collection for analysing personalised recommendation feeds on X.
 
