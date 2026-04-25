@@ -24,7 +24,7 @@ load_dotenv()
 
 BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
-SENDER_NAME = os.getenv("SENDER_NAME", "EchoChamber")
+SENDER_NAME = "EchoChamber"
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 FRONTEND_URL = "https://echochamber-z3vo.onrender.com"
