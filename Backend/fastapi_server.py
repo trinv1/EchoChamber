@@ -115,10 +115,14 @@ def login(
     if not pwd_context.verify(password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    #Generating random token
-    token = secrets.token_hex(32)
+    #Reuse existing token so logging in elsewhere does not invalidate streamlit/extension
+    existing_token = user.get("auth_token")
 
-    #Storing token in user document
+    if existing_token:
+        token = existing_token
+    else:
+        token = secrets.token_hex(32)
+
     users.update_one(
         {"_id": user["_id"]},
         {"$set": {"auth_token": token}}
