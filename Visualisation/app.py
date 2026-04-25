@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 
-API_BASE = "echochamber-production-573f.up.railway.app"
+API_BASE = "https://echochamber-production-573f.up.railway.app"
 
 #Fixed colours for political leaning across all charts
 LEANING_COLOURS = {
@@ -370,7 +370,7 @@ def fetch_top_words(study_id="", subject_id="", phase_id="", session_id="", limi
     if session_id:
         params["session_id"] = session_id
 
-    #Call backend endpoint and return JSON response
+    #Call d endpoint and return JSON response
     r = requests.get(f"{API_BASE}/stats/top-words", params=params, headers=auth_headers())
     r.raise_for_status()
     return r.json()
