@@ -4,6 +4,8 @@ EchoChamber is a research platform designed to analyse how personalised social m
 
 The project was developed to investigate whether gender-related account signals influence the political composition of recommended content.
 
+Recorded demo of the application can be found at: [EchoChamber](https://atlantictu-my.sharepoint.com/personal/g00405393_atu_ie/_layouts/15/stream.aspx?id=%2Fpersonal%2Fg00405393_atu_ie%2FDocuments%2FVideos%2FClipchamp%2FVideo+Project+2%2FExports%2FEchoChamber.mp4&ga=1&referrer=StreamWebApp.Web&referrerScenario=AddressBarCopied.view.334b5991-674f-44c4-9f66-76f9478ee8aa)
+
 # How to run
 **Clone repository:**
 * git clone https://github.com/trinv1/EchoChamber
