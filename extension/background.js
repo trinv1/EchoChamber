@@ -119,8 +119,36 @@ async function stopSession(studyId, sessionId) {
 }
 
 //Starting capture+upload loop
-async function startCaptureLoop(tabId, intervalMs = 1500, studyId = "", subjectId = "", phaseId = "", sessionId = "") {
+async function startCaptureLoop(tabId, intervalMs = 1500, studyId = "", subjectId = "", phaseId = "", sessionId = "", sendResponse = null) {
   stopCaptureLoop();
+
+  //Getting current tab
+  const [tab] = await chrome.tabs.query({
+    active: true,
+    currentWindow: true
+  });
+
+  //Checking current tab is X
+  if (!tab.url || !tab.url.startsWith("https://x.com/")) {
+    console.error("Capture blocked: active tab is not X.");
+
+    if (sendResponse) {
+      sendResponse({
+        success: false,
+        message: "Please open X before starting capture."
+      });
+    }
+
+    return;
+  }
+
+  if (sendResponse) {
+    sendResponse({
+      success: true,
+      message: "Capture started."
+    });
+  }
+
   capturingTabId = tabId;
 
   //Repeating timer
@@ -191,6 +219,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       currentSubjectId = msg.subjectId ?? "";
       currentPhaseId = msg.phaseId ?? "";
 
+      const tab = await chrome.tabs.get(currentTabId);
+
+      //Checking if current tab is X
+      if (!tab.url || !tab.url.startsWith("https://x.com/")) {
+        sendResponse({
+          success: false,
+          message: "Please open X before starting capture."
+        });
+        return;
+      }
+
       //Sending ids to session/start endpoint
       const sessionResult = await startSession(
         currentStudyId,
@@ -212,7 +251,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         currentStudyId,
         currentSubjectId,
         currentPhaseId,
-        currentSessionId
+        currentSessionId,
+        sendResponse
     );
     }
 

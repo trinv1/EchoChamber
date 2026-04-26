@@ -224,7 +224,7 @@ document.getElementById("start").addEventListener("click", async () => {
   }
   
   //Sending START message to background service worker
-  await chrome.runtime.sendMessage({
+  const response = await chrome.runtime.sendMessage({
     type: "START",
     tabId: tab.id,
     captureEveryMs: 2000,
@@ -234,9 +234,17 @@ document.getElementById("start").addEventListener("click", async () => {
     phaseId,
   });
 
+  //If response not successful
+  if (!response?.success) {
+    statusEl.textContent = response?.message || "Capture could not start.";
+    statusEl.style.color = "red";
+    return;
+  }
+
   //Updating popup status
-  statusEl.textContent = "Running";
-}); 
+  statusEl.textContent = response.message || "Running";
+  statusEl.style.color = "green";
+  }); 
 
 //Runs when stop button is clicked
 document.getElementById("stop").addEventListener("click", async () => {
@@ -244,5 +252,6 @@ document.getElementById("stop").addEventListener("click", async () => {
   if (!tab || !tab.id) return;
 
   await chrome.runtime.sendMessage({ type: "STOP", tabId: tab.id });
-  statusEl.textContent = "Stopped";
+  statusEl.textContent = "Capture stopped";
+  statusEl.style.color = "red";
 });
